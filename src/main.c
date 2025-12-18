@@ -2,7 +2,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
-#include "selectdevice.h"
+#include "gpu/device.h"
 
 VkInstance makeinstance() {
   VkInstance ret;
@@ -54,9 +54,9 @@ int main(int argc, char **argv) {
     return 3;
   }
 
-  VkDevice device = selectdevice(instance);
+  VkDevice device = NULL;
   if (device == NULL) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device\n");
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device\n Requirements:\nAtleast Vulkan 1.3, with a graphic+compute+present queue)\n");
     return 4;
   }
 
