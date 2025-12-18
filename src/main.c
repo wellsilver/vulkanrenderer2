@@ -10,7 +10,7 @@ VkInstance makeinstance() {
   VkApplicationInfo appinfo = {
     .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
     .pNext = NULL,
-    .pApplicationName = "RTX Terrain Explore",
+    .pApplicationName = "Space game",
     .applicationVersion = 1,
     .pEngineName = "",
     .engineVersion = 0,
@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
   VkInstance instance = makeinstance();
   if (instance == 0) return 2;
 
-  SDL_Window *window = SDL_CreateWindow("RTX Terrain Explore", 480, 480, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
   if (window == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
