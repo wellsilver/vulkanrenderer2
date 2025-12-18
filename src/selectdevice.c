@@ -44,7 +44,7 @@ struct idealdeviceRet idealdevice(VkInstance instance) {
 
     // Check for support
     for (unsigned int iqueue=0;iqueue<queuelen;iqueue++) {
-      if (queues[iqueue].queueFlags & VK_QUEUE_COMPUTE_BIT && SDL_Vulkan_GetPresentationSupport(instance, devices[idevice], 0)) {
+      if (queues[iqueue].queueFlags & VK_QUEUE_COMPUTE_BIT && SDL_Vulkan_GetPresentationSupport(instance, devices[idevice], iqueue)) {
         if (ret.pick_memsize < memsize) { // Select the device if it has a supported queue family and greatest local memory size, and the first queue within that device
           ret.pick_memsize = memsize;
           ret.pick = devices[idevice];
