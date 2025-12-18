@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 
   VkDevice device = selectdevice(instance);
   if (device == NULL) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device%s\n", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device\n");
     return 4;
   }
 
