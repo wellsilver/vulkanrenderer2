@@ -1,14 +1,12 @@
 sources := $(shell find src -name "*.c")
-objects := $(patsubst %.c, out/%.o, $(notdir $(sources)))
+objects := $(patsubst src/%,out/%,$(patsubst %.c, %.o, $(sources)))
 
 out/game: $(objects) | out
 	gcc $^ -o out/game -l SDL3 -l vulkan
 
 out/%.o: src/%.c | out
+	@mkdir -p $(dir $@)
 	gcc $< -o $@ -c
-
-out/%.o: src/%.cpp | out
-	g++ $< -o $@ -c
 
 out:
 	mkdir out
