@@ -49,7 +49,7 @@ struct idealdeviceRet idealdevice(VkInstance instance) {
           ret.pick_memsize = memsize;
           ret.pick = devices[idevice];
           ret.pick_queueindex = iqueue;
-          SDL_memcpy(ret.name, properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
+          SDL_memcpy(ret.name, properties.deviceName, SDL_strlen(ret.name));
         }
       }
     }
