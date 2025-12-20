@@ -55,12 +55,15 @@ int main(int argc, char **argv) {
   }
 
   VkDevice device = NULL;
+  device = selectdevice(instance);
   if (device == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device\n Requirements:\nAtleast Vulkan 1.3, with a graphic+compute+present queue)\n");
     return 4;
   }
 
   SDL_DestroyWindow(window);
+  vkDestroyDevice(device, NULL);
+  vkDestroyInstance(instance, NULL);
 
   SDL_Quit();
   return 0;

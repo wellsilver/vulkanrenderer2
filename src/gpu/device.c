@@ -4,7 +4,7 @@
 
 struct idealdeviceRet {
   VkPhysicalDevice pick;
-  char *name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+  char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
   uint64_t pick_memsize;
   unsigned int pick_queueindex;
 };
@@ -44,12 +44,13 @@ struct idealdeviceRet idealdevice(VkInstance instance) {
 
     // Check for support
     for (unsigned int iqueue=0;iqueue<queuelen;iqueue++) {
-      if (queues[iqueue].queueFlags & VK_QUEUE_COMPUTE_BIT && SDL_Vulkan_GetPresentationSupport(instance, devices[idevice], iqueue)) {
+      if (queues[iqueue].queueFlags & VK_QUEUE_GRAPHICS_BIT && queues[iqueue].queueFlags & VK_QUEUE_COMPUTE_BIT && SDL_Vulkan_GetPresentationSupport(instance, devices[idevice], iqueue)) {
         if (ret.pick_memsize < memsize) { // Select the device if it has a supported queue family and greatest local memory size, and the first queue within that device
           ret.pick_memsize = memsize;
           ret.pick = devices[idevice];
           ret.pick_queueindex = iqueue;
-          SDL_memcpy(ret.name, properties.deviceName, SDL_strlen(ret.name));
+          SDL_memset(ret.name, 0, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE); // Clear the old name
+          SDL_memcpy(ret.name, properties.deviceName, strlen(properties.deviceName));
         }
       }
     }
