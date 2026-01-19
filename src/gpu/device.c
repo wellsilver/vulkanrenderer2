@@ -1,4 +1,5 @@
-#include "device.h"
+#include "gpu.h"
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -59,9 +60,9 @@ struct idealdeviceRet idealdevice(VkInstance instance) {
   return ret;
 }
 
-VkDevice selectdevice(VkInstance instance) {
+struct selectdeviceret selectdevice(VkInstance instance) {
   struct idealdeviceRet device = idealdevice(instance);
-  if (device.pick == NULL) return NULL;
+  if (device.pick == NULL) return (struct selectdeviceret) {NULL, NULL};
 
   SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Device selected: %s %lu\n", device.name, device.pick_memsize);
 
@@ -76,24 +77,31 @@ VkDevice selectdevice(VkInstance instance) {
     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO
   };
 
+  unsigned int extensions = 1;
+  const char *extensionsstr[1] = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+  };
+
   VkDeviceCreateInfo createinfo = {
-    .enabledExtensionCount = 0,
+    .enabledExtensionCount = extensions,
     .enabledLayerCount = 0,
     .flags = 0,
     .pEnabledFeatures = 0,
     .pNext = 0,
-    .ppEnabledExtensionNames = 0,
+    .ppEnabledExtensionNames = extensionsstr,
     .ppEnabledLayerNames = 0,
     .pQueueCreateInfos = &queuecreateinfo,
     .queueCreateInfoCount = 1,
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
   };
 
-  VkDevice ret;
-  VkResult err = vkCreateDevice(device.pick, &createinfo, NULL, &ret);
+  struct selectdeviceret ret;
+  ret.physicaldevice = device.pick;
+
+  VkResult err = vkCreateDevice(device.pick, &createinfo, NULL, &ret.device);
   if (err != VK_SUCCESS) {
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "vkCreateDevice %i\n", err);
-    return NULL;
+    return (struct selectdeviceret) {NULL, NULL};
   }
   
   return ret;

@@ -2,7 +2,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
-#include "gpu/device.h"
+#include "gpu/gpu.h"
 
 VkInstance makeinstance() {
   VkInstance ret;
@@ -14,7 +14,7 @@ VkInstance makeinstance() {
     .applicationVersion = 1,
     .pEngineName = "",
     .engineVersion = 0,
-    .apiVersion = VK_API_VERSION_1_3, // TODO Update this to whatever api version the extensions are..
+    .apiVersion = VK_API_VERSION_1_3, // TODO Update this to whatever api version the extensions are.. VK_KHR_DYNAMIC_RENDERING is default (and doesnt even suffix with khr) on 1.3
   };
 
   unsigned int count;
@@ -54,15 +54,25 @@ int main(int argc, char **argv) {
     return 3;
   }
 
-  VkDevice device = NULL;
-  device = selectdevice(instance);
-  if (device == NULL) {
+  VkSurfaceKHR windowsurface;
+  if (!SDL_Vulkan_CreateSurface(window, instance, NULL, &windowsurface)) {
+    SDL_Log("Could not create VkSurface %s\n", SDL_GetError());
+    return 5;
+  }
+
+  struct selectdeviceret device = selectdevice(instance);
+  if (device.device == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device\n Requirements:\nAtleast Vulkan 1.3, with a graphic+compute+present queue)\n");
     return 4;
   }
 
+  VkSwapchainKHR swapchain = createswapchain(device, windowsurface);
+
   SDL_DestroyWindow(window);
-  vkDestroyDevice(device, NULL);
+  vkDestroySwapchainKHR(device.device, swapchain, NULL);
+  vkDestroySwapchainKHR(device.device, (void *) 0x20000000002, NULL); // why are there two swapchains........
+  vkDestroyDevice(device.device, NULL);
+  vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);
 
   SDL_Quit();
