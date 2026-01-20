@@ -3,15 +3,25 @@
 #include <SDL3/SDL.h>
 
 VkSwapchainKHR createswapchain(struct selectdeviceret device, VkSurfaceKHR surface) {
-  VkSwapchainCreateInfoKHR createinfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,0};
+  VkResult err;
 
   // Going to assume that the first format returned is the ideal one (and it does give the ideal one, atleast on my linux RTX 2050 590.44.01)
   VkSurfaceFormatKHR idealformat;
   unsigned int count = 1;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicaldevice, surface, &count, &idealformat);
+  err = vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicaldevice, surface, &count, &idealformat);
+  if (err < VK_SUCCESS) { // This function can return a greater than 0 value in success
+    SDL_Log("vkGetPhysicalDeviceSurfaceFormatsKHR Failed - %i\n", err);
+    return NULL;
+  }
 
   VkSurfaceCapabilitiesKHR capabilities;
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicaldevice, surface, &capabilities);
+  err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicaldevice, surface, &capabilities);
+  if (err != VK_SUCCESS) {
+    SDL_Log("vkGetPhysicalDeviceSurfaceCapabilitiesKHR Failed - %i\n", err);
+    return NULL;
+  }
+  
+  VkSwapchainCreateInfoKHR createinfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,0};
 
   createinfo.surface = surface;
   createinfo.minImageCount = 2;
@@ -30,5 +40,10 @@ VkSwapchainKHR createswapchain(struct selectdeviceret device, VkSurfaceKHR surfa
   createinfo.clipped = VK_TRUE;
 
   VkSwapchainKHR swapchain;
-  vkCreateSwapchainKHR(device.device, &createinfo, NULL, &swapchain);
+  err = vkCreateSwapchainKHR(device.device, &createinfo, NULL, &swapchain);
+  if (err != VK_SUCCESS) {
+    SDL_Log("vkCreateSwapchainKHR Failed - %i\n", err);
+    return NULL;
+  }
+  return swapchain;
 }

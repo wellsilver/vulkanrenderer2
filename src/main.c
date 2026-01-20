@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
   VkInstance instance = makeinstance();
   if (instance == 0) return 2;
 
-  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN);
   if (window == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
@@ -67,10 +67,13 @@ int main(int argc, char **argv) {
   }
 
   VkSwapchainKHR swapchain = createswapchain(device, windowsurface);
+  if (swapchain == NULL) {
+    SDL_Log("Could not create VkSwapchainKHR %s\n", SDL_GetError());
+    return 6;
+  }
 
   SDL_DestroyWindow(window);
   vkDestroySwapchainKHR(device.device, swapchain, NULL);
-  vkDestroySwapchainKHR(device.device, (void *) 0x20000000002, NULL); // why are there two swapchains........
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);
