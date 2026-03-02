@@ -10,3 +10,13 @@ struct selectdeviceret {
 struct selectdeviceret selectdevice(VkInstance instance);
 
 VkSwapchainKHR createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
+
+VkPipeline creategraphicspipeline(VkDevice device);
+
+static const char vertexcode[] = {
+#embed "../../out/vertex.spv"
+};
+
+static const char fragmentcode[] = {
+#embed "../../out/fragment.spv"
+};
