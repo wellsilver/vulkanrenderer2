@@ -66,14 +66,21 @@ int main(int argc, char **argv) {
     return 4;
   }
 
-  VkSwapchainKHR swapchain = createswapchain(device, windowsurface);
-  if (swapchain == NULL) {
+  struct swapchainandformat swapchain = createswapchain(device, windowsurface);
+  if (swapchain.swapchain == NULL) {
     SDL_Log("Could not create VkSwapchainKHR %s\n", SDL_GetError());
     return 6;
   }
 
+  VkPipeline graphicspipeline = creategraphicspipeline(device.device, swapchain);
+  if (graphicspipeline == NULL) {
+    SDL_Log("Could not create VkPipeline %s\n", SDL_GetError());
+    return 7;
+  }
+
   SDL_DestroyWindow(window);
-  vkDestroySwapchainKHR(device.device, swapchain, NULL);
+  vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
+  vkDestroyPipeline(device.device, graphicspipeline, NULL);
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);

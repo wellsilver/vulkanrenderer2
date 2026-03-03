@@ -9,14 +9,15 @@ struct selectdeviceret {
 // Can return NULL, select a supported device
 struct selectdeviceret selectdevice(VkInstance instance);
 
-VkSwapchainKHR createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
-
-VkPipeline creategraphicspipeline(VkDevice device);
-
-static const char vertexcode[] = {
-#embed "../../out/vertex.spv"
+struct swapchainandformat {
+  VkSwapchainKHR swapchain;
+  VkSurfaceFormatKHR format;
 };
 
-static const char fragmentcode[] = {
-#embed "../../out/fragment.spv"
+struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
+
+VkPipeline creategraphicspipeline(VkDevice device, struct swapchainandformat);
+
+static const char shadercode[] = {
+#embed "../../out/shaders.spv"
 };

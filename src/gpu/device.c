@@ -82,12 +82,23 @@ struct selectdeviceret selectdevice(VkInstance instance) {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
   };
 
+  VkPhysicalDeviceVulkan13Features features13 = {0};
+  features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+  features13.dynamicRendering = true;
+  VkPhysicalDeviceVulkan11Features features11 = {0};
+  features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+  features11.shaderDrawParameters = VK_TRUE;
+  VkPhysicalDeviceFeatures2 features2 = {0};
+  features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+  features2.pNext = &features11;
+  features11.pNext = &features13;
+
   VkDeviceCreateInfo createinfo = {
     .enabledExtensionCount = extensions,
     .enabledLayerCount = 0,
     .flags = 0,
     .pEnabledFeatures = 0,
-    .pNext = 0,
+    .pNext = &features2,
     .ppEnabledExtensionNames = extensionsstr,
     .ppEnabledLayerNames = 0,
     .pQueueCreateInfos = &queuecreateinfo,
