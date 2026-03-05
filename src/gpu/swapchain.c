@@ -26,7 +26,7 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
   VkSwapchainCreateInfoKHR createinfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,0};
 
   createinfo.surface = surface;
-  createinfo.minImageCount = 2;
+  createinfo.minImageCount = 3;
   createinfo.imageFormat = idealformat.format;
   createinfo.imageColorSpace = idealformat.colorSpace;
   createinfo.imageExtent = capabilities.currentExtent;
