@@ -40,25 +40,23 @@ VkInstance makeinstance() {
   return ret;
 }
 
-void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex) {
+void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex, int width, int height) {
   vkBeginCommandBuffer(buffer, &(VkCommandBufferBeginInfo) {.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags = 0});
 
-  vkAcquireNextImageKHR(device.device, swapchain.swapchain, 0, imagesem, NULL, imageindex);
-
   vkCmdBeginRendering(buffer, &(VkRenderingInfo) {.sType=VK_STRUCTURE_TYPE_RENDERING_INFO,
-    .renderArea=(VkRect2D) {.extent=(VkExtent2D){.width=480,.height=480},.offset=(VkOffset2D) {.x=0,.y=0}},
+    .renderArea=(VkRect2D) {.extent=(VkExtent2D){.width=width,.height=height},.offset=(VkOffset2D) {.x=0,.y=0}},
     .layerCount=1,
     .colorAttachmentCount=1,
     .pColorAttachments=&(VkRenderingAttachmentInfo) {.sType=VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
     .imageView = images[*imageindex].view,
-    .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+    .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     },
   });
 
   vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
-  vkCmdSetViewport(buffer, 0, 1, &(VkViewport) {.width = 480,.height=480,.x=0,.y=0,.minDepth=0.0f,.maxDepth=1.0f});
-  vkCmdSetScissor(buffer, 0, 1, &(VkRect2D) {.extent=(VkExtent2D){.width=480,.height=480},.offset=(VkOffset2D) {.x=0,.y=0}});
+  vkCmdSetViewport(buffer, 0, 1, &(VkViewport) {.width = width,.height=height,.x=0,.y=0,.minDepth=0.0f,.maxDepth=1.0f});
+  vkCmdSetScissor(buffer, 0, 1, &(VkRect2D) {.extent=(VkExtent2D){.width=width,.height=height},.offset=(VkOffset2D) {.x=0,.y=0}});
 
   vkCmdDraw(buffer, 3, 1, 0, 0);
 
@@ -75,7 +73,7 @@ int main(int argc, char **argv) {
   VkInstance instance = makeinstance();
   if (instance == 0) return 2;
 
-  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN);
+  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
   if (window == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
@@ -107,7 +105,7 @@ int main(int argc, char **argv) {
 
   struct imageview *images = createimageviews(device, swapchain);
   if (images == NULL) {
-    SDL_Log("Could not create imageviews %s\n", SDL_GetError());
+    SDL_Log("Could not create imageviews\n");
     return 7;
   }
 
@@ -129,16 +127,32 @@ int main(int argc, char **argv) {
 
   bool active = true;
   SDL_Event currentevent;
-  uint32_t imageindex;
+  int width=480, height=480;
 
   while (active) {
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
+      if (currentevent.type == SDL_EVENT_WINDOW_RESIZED) {
+        SDL_GetWindowSizeInPixels(window, &width, &height);
+      }
     }
+    uint32_t imageindex;
     
+    // Get the image for rendering
+    VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, 0, imagesem, NULL, &imageindex);
+    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
+      releaseimageviews(device, images); // this frees the images also. Too lazy to change the name
+      images = createimageviews(device, swapchain);
+      if (images == NULL) {
+        SDL_Log("Couldnt recreate imageviews\n");
+        return 7;
+      }
+      continue;
+    }
+
     vkResetCommandBuffer(buffer, 0);
-    recordcommandbuffer(buffer, device, swapchain, graphicspipeline, images, imagesem, &imageindex);
-    
+    recordcommandbuffer(buffer, device, swapchain, graphicspipeline, images, imagesem, &imageindex, width, height);
+
     vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
       .commandBufferCount = 1,
@@ -162,12 +176,18 @@ int main(int argc, char **argv) {
     vkQueueWaitIdle(device.queue);
   }
 
-  SDL_DestroyWindow(window);
+
+  releaseimageviews(device, images);
+  vkFreeCommandBuffers(device.device, pool, 1, &buffer);
+  vkDestroyCommandPool(device.device, pool, NULL);
+  vkDestroySemaphore(device.device, imagesem, NULL);
+  vkDestroySemaphore(device.device, finishedrender, NULL);
   vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
   vkDestroyPipeline(device.device, graphicspipeline, NULL);
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);
+  SDL_DestroyWindow(window);
 
   SDL_Quit();
   return 0;

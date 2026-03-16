@@ -7,7 +7,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
   uint32_t swapchainimagecount;
   vkGetSwapchainImagesKHR(device.device, swappy.swapchain, &swapchainimagecount, NULL);
   VkImage imagebuffer[swapchainimagecount];
-  struct imageview *ret = SDL_malloc(sizeof(struct imageview)*swapchainimagecount);
+  struct imageview *ret = SDL_malloc(sizeof(struct imageview)*(swapchainimagecount+1));
   vkGetSwapchainImagesKHR(device.device, swappy.swapchain, &swapchainimagecount, imagebuffer);
 
   for (unsigned int loop=0;loop<swapchainimagecount;loop++) {
@@ -32,5 +32,14 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
     }
   }
 
+  ret[swapchainimagecount+1].image = 0;
+
   return ret;
+}
+
+void releaseimageviews(struct selectdeviceret device,struct imageview *images) {
+  for (unsigned int loop=0;images[loop].image != 0;loop++) {
+    vkDestroyImageView(device.device, images[loop].view, NULL);
+  }
+  SDL_free(images);
 }

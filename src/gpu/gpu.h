@@ -25,6 +25,7 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
 VkPipeline creategraphicspipeline(VkDevice device, struct swapchainandformat);
 
 struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy);
+void releaseimageviews(struct selectdeviceret device,struct imageview *images);
 
 static const char shadercode[] = {
 #embed "../../out/shaders.spv"
