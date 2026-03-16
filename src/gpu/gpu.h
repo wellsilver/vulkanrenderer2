@@ -4,6 +4,12 @@
 struct selectdeviceret {
   VkDevice device;
   VkPhysicalDevice physicaldevice;
+  VkQueue queue;
+};
+
+struct imageview {
+  VkImage image;
+  VkImageView view;
 };
 
 // Can return NULL, select a supported device
@@ -17,6 +23,8 @@ struct swapchainandformat {
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
 
 VkPipeline creategraphicspipeline(VkDevice device, struct swapchainandformat);
+
+struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy);
 
 static const char shadercode[] = {
 #embed "../../out/shaders.spv"

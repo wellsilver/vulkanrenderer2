@@ -115,5 +115,7 @@ struct selectdeviceret selectdevice(VkInstance instance) {
     return (struct selectdeviceret) {NULL, NULL};
   }
   
+  vkGetDeviceQueue(ret.device, device.pick_queueindex, 0, &ret.queue);
+
   return ret;
 }

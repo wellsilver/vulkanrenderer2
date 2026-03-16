@@ -16,8 +16,11 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
     return ret;
   }
 
+  //SDL_Log("Begin\n");
+  //SDL_Log("%p, %p\n", device.physicaldevice, surface);
   VkSurfaceCapabilitiesKHR capabilities;
   err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicaldevice, surface, &capabilities);
+  //SDL_Log("Done\n");
   if (err != VK_SUCCESS) {
     SDL_Log("vkGetPhysicalDeviceSurfaceCapabilitiesKHR Failed - %i\n", err);
     return ret;

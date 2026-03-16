@@ -40,6 +40,33 @@ VkInstance makeinstance() {
   return ret;
 }
 
+void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex) {
+  vkBeginCommandBuffer(buffer, &(VkCommandBufferBeginInfo) {.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags = 0});
+
+  vkAcquireNextImageKHR(device.device, swapchain.swapchain, 0, imagesem, NULL, imageindex);
+
+  vkCmdBeginRendering(buffer, &(VkRenderingInfo) {.sType=VK_STRUCTURE_TYPE_RENDERING_INFO,
+    .renderArea=(VkRect2D) {.extent=(VkExtent2D){.width=480,.height=480},.offset=(VkOffset2D) {.x=0,.y=0}},
+    .layerCount=1,
+    .colorAttachmentCount=1,
+    .pColorAttachments=&(VkRenderingAttachmentInfo) {.sType=VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+    .imageView = images[*imageindex].view,
+    .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+    },
+  });
+
+  vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
+
+  vkCmdSetViewport(buffer, 0, 1, &(VkViewport) {.width = 480,.height=480,.x=0,.y=0,.minDepth=0.0f,.maxDepth=1.0f});
+  vkCmdSetScissor(buffer, 0, 1, &(VkRect2D) {.extent=(VkExtent2D){.width=480,.height=480},.offset=(VkOffset2D) {.x=0,.y=0}});
+
+  vkCmdDraw(buffer, 3, 1, 0, 0);
+
+  vkCmdEndRendering(buffer);
+
+  vkEndCommandBuffer(buffer);
+}
+
 int main(int argc, char **argv) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     return 1;
@@ -74,8 +101,65 @@ int main(int argc, char **argv) {
 
   VkPipeline graphicspipeline = creategraphicspipeline(device.device, swapchain);
   if (graphicspipeline == NULL) {
-    SDL_Log("Could not create VkPipeline %s\n", SDL_GetError());
+    SDL_Log("Could not create VkPipeline (graphics) %s\n", SDL_GetError());
     return 7;
+  }
+
+  struct imageview *images = createimageviews(device, swapchain);
+  if (images == NULL) {
+    SDL_Log("Could not create imageviews %s\n", SDL_GetError());
+    return 7;
+  }
+
+  VkCommandPool pool;
+  vkCreateCommandPool(device.device, &(struct VkCommandPoolCreateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT}, NULL, &pool);
+  
+  VkCommandBuffer buffer;
+  vkAllocateCommandBuffers(device.device, &(VkCommandBufferAllocateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,.commandPool=pool,.commandBufferCount=1,.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY}, &buffer);
+
+  VkSemaphore finishedrender; // triggered when rendering is finished.
+  vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+  }, NULL, &finishedrender);
+
+  VkSemaphore imagesem;
+  vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+  }, NULL, &imagesem);
+
+  bool active = true;
+  SDL_Event currentevent;
+  uint32_t imageindex;
+
+  while (active) {
+    while (SDL_PollEvent(&currentevent)) {
+      if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
+    }
+    
+    vkResetCommandBuffer(buffer, 0);
+    recordcommandbuffer(buffer, device, swapchain, graphicspipeline, images, imagesem, &imageindex);
+    
+    vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &buffer,
+      .waitSemaphoreCount=1,
+      .pWaitSemaphores = &imagesem,
+      .signalSemaphoreCount = 1,
+      .pSignalSemaphores = &finishedrender,
+      .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
+    }, NULL);
+    
+    vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
+      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &finishedrender,
+      .swapchainCount = 1,
+      .pSwapchains = &swapchain.swapchain,
+      .pImageIndices = &imageindex,
+    });
+
+    vkQueueWaitIdle(device.queue);
   }
 
   SDL_DestroyWindow(window);
