@@ -32,13 +32,13 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
     }
   }
 
-  ret[swapchainimagecount+1].image = 0;
+  ret[swapchainimagecount+1].image = NULL;
 
   return ret;
 }
 
-void releaseimageviews(struct selectdeviceret device,struct imageview *images) {
-  for (unsigned int loop=0;images[loop].image != 0;loop++) {
+void releaseimageviews(struct selectdeviceret device, struct imageview *images) {
+  for (unsigned int loop=0;images[loop].image != NULL;loop++) {
     vkDestroyImageView(device.device, images[loop].view, NULL);
   }
   SDL_free(images);

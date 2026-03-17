@@ -165,7 +165,13 @@ int main(int argc, char **argv) {
     // Get the image for rendering
     VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, 0, imagesem, NULL, &imageindex);
     if (err == VK_ERROR_OUT_OF_DATE_KHR) {
-      releaseimageviews(device, images); // this frees the images also. Too lazy to change the name
+      releaseimageviews(device, images);
+      vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
+      swapchain = createswapchain(device, windowsurface);
+      if (swapchain.swapchain == NULL) {
+        SDL_Log("Couldnt recreate swapchain\n");
+        return 7;
+      }
       images = createimageviews(device, swapchain);
       if (images == NULL) {
         SDL_Log("Couldnt recreate imageviews\n");
