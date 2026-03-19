@@ -152,13 +152,11 @@ int main(int argc, char **argv) {
   bool active = true;
   SDL_Event currentevent;
   int width=480, height=480;
+  SDL_GetWindowSizeInPixels(window, &width, &height);
 
   while (active) {
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
-      if (currentevent.type == SDL_EVENT_WINDOW_RESIZED) {
-        SDL_GetWindowSizeInPixels(window, &width, &height);
-      }
     }
     uint32_t imageindex;
     
@@ -168,6 +166,7 @@ int main(int argc, char **argv) {
       releaseimageviews(device, images);
       vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
       swapchain = createswapchain(device, windowsurface);
+      SDL_GetWindowSizeInPixels(window, &width, &height);
       if (swapchain.swapchain == NULL) {
         SDL_Log("Couldnt recreate swapchain\n");
         return 7;
