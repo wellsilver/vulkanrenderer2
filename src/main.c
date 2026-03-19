@@ -155,9 +155,6 @@ int main(int argc, char **argv) {
   SDL_GetWindowSizeInPixels(window, &width, &height);
 
   while (active) {
-    while (SDL_PollEvent(&currentevent)) {
-      if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
-    }
     uint32_t imageindex;
     
     // Get the image for rendering
@@ -203,6 +200,10 @@ int main(int argc, char **argv) {
     });
 
     vkQueueWaitIdle(device.queue);
+    
+    while (SDL_PollEvent(&currentevent)) {
+      if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
+    }
   }
 
 
