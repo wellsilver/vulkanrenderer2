@@ -22,7 +22,7 @@ struct swapchainandformat {
 
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
 
-VkPipeline creategraphicspipeline(VkDevice device, struct swapchainandformat);
+VkPipeline creategraphicspipeline(VkDevice device, VkFormat swapchainformat);
 
 struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy);
 void releaseimageviews(struct selectdeviceret device,struct imageview *images);

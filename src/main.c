@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     return 6;
   }
 
-  VkPipeline graphicspipeline = creategraphicspipeline(device.device, swapchain);
+  VkPipeline graphicspipeline = creategraphicspipeline(device.device, swapchain.format.format);
   if (graphicspipeline == NULL) {
     SDL_Log("Could not create VkPipeline (graphics) %s\n", SDL_GetError());
     return 7;
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
       .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
     }, NULL);
     
-    vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
+    err = vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
       .waitSemaphoreCount = 1,
       .pWaitSemaphores = &finishedrender,
@@ -198,9 +198,12 @@ int main(int argc, char **argv) {
       .pSwapchains = &swapchain.swapchain,
       .pImageIndices = &imageindex,
     });
+    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
 
-    vkQueueWaitIdle(device.queue);
+    }
     
+    vkQueueWaitIdle(device.queue);
+
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }

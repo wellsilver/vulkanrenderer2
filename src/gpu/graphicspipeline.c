@@ -18,7 +18,7 @@ VkShaderModule createshadermodule(VkDevice device, const char *code, uint32_t si
   return ret;
 }
 
-VkPipeline creategraphicspipeline(VkDevice device, struct swapchainandformat swappyformat) {
+VkPipeline creategraphicspipeline(VkDevice device, VkFormat swapchainformat) {
   VkShaderModule shader = createshadermodule(device, shadercode, sizeof(shadercode));
   if (shader == NULL) return NULL;
 
@@ -100,7 +100,7 @@ VkPipeline creategraphicspipeline(VkDevice device, struct swapchainandformat swa
     .pNext = &(VkPipelineRenderingCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
       .colorAttachmentCount = 1,
-      .pColorAttachmentFormats = &swappyformat.format.format,
+      .pColorAttachmentFormats = &swapchainformat,
       .depthAttachmentFormat = VK_FORMAT_UNDEFINED,
       .stencilAttachmentFormat = VK_FORMAT_UNDEFINED,
     },
