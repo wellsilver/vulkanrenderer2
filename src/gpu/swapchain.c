@@ -58,7 +58,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
   uint32_t swapchainimagecount;
   vkGetSwapchainImagesKHR(device.device, swappy.swapchain, &swapchainimagecount, NULL);
   VkImage imagebuffer[swapchainimagecount];
-  struct imageview *ret = SDL_malloc(sizeof(struct imageview)*(swapchainimagecount+1));
+  struct imageview *ret = SDL_malloc(sizeof(struct imageview)*(swapchainimagecount));
   vkGetSwapchainImagesKHR(device.device, swappy.swapchain, &swapchainimagecount, imagebuffer);
 
   for (unsigned int loop=0;loop<swapchainimagecount;loop++) {
@@ -85,15 +85,15 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
     vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     }, NULL, &ret[loop].finished);
-  }
 
-  ret[swapchainimagecount+1].image = NULL;
+    ret[loop].length = swapchainimagecount;
+  }
 
   return ret;
 }
 
 void releaseimageviews(struct selectdeviceret device, struct imageview *images) {
-  for (unsigned int loop=0;images[loop].image != NULL;loop++) {
+  for (unsigned int loop=0;loop<3;loop++) {
     vkDestroyImageView(device.device, images[loop].view, NULL);
     vkDestroySemaphore(device.device, images[loop].finished, NULL);
   }

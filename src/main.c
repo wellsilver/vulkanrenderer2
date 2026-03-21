@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
   VkInstance instance = makeinstance();
   if (instance == 0) return 2;
 
-  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN);
   if (window == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
@@ -136,57 +136,53 @@ int main(int argc, char **argv) {
   VkCommandPool pool;
   vkCreateCommandPool(device.device, &(struct VkCommandPoolCreateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT}, NULL, &pool);
   
-  VkCommandBuffer buffer;
-  vkAllocateCommandBuffers(device.device, &(VkCommandBufferAllocateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,.commandPool=pool,.commandBufferCount=1,.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY}, &buffer);
+  VkCommandBuffer imagebuffer[2];
+  vkAllocateCommandBuffers(device.device, &(VkCommandBufferAllocateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,.commandPool=pool,.commandBufferCount=2,.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY}, imagebuffer);
 
-  VkSemaphore finishedrender; // triggered when rendering is finished.
-  vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
-    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-  }, NULL, &finishedrender);
-
-  VkSemaphore imagesem;
-  vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
-    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-  }, NULL, &imagesem);
+  VkSemaphore imagesem[2];
+  for (unsigned int loop=0;loop<2;loop++)
+    vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    }, NULL, &imagesem[loop]);
+  
+  bool imagefencecheck[2] = {false, false};
+  VkFence imagefence[2];
+  for (unsigned int loop=0;loop<2;loop++)
+    vkCreateFence(device.device, &(VkFenceCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    }, NULL, &imagefence[loop]);
 
   bool active = true;
   SDL_Event currentevent;
   int width=480, height=480;
-  SDL_GetWindowSizeInPixels(window, &width, &height);
+  uint32_t imageindex = 0;
+  uint32_t frame = 0;
 
   while (active) {
-    uint32_t imageindex;
-    
-    // Get the image for rendering
-    VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, 10000, imagesem, NULL, &imageindex);
-    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
-      SDL_GetWindowSizeInPixels(window, &width, &height);
-      releaseimageviews(device, images);
-      vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
-      swapchain = createswapchain(device, windowsurface);
-      if (swapchain.swapchain == NULL) {
-        SDL_Log("Couldnt recreate swapchain\n");
-      }
-      images = createimageviews(device, swapchain);
-      if (images == NULL) {
-        SDL_Log("Couldnt recreate imageviews\n");
-      }
-      continue;
+    if (imagefencecheck[frame]) { // Wait for the frame before last to finish before starting on the next one
+      vkWaitForFences(device.device, 1, &imagefence[frame], 1, UINT64_MAX);
+      vkResetFences(device.device, 1, &imagefence[frame]);
+      imagefencecheck[frame] = false;
     }
 
-    vkResetCommandBuffer(buffer, 0);
-    recordcommandbuffer(buffer, device, swapchain, graphicspipeline, images, imagesem, &imageindex, width, height);
+    // Get the image for rendering
+    VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, UINT64_MAX, imagesem[frame], NULL, &imageindex);
+    if (err != VK_SUCCESS) return 1;
+
+    vkResetCommandBuffer(imagebuffer[frame], 0);
+    recordcommandbuffer(imagebuffer[frame], device, swapchain, graphicspipeline, images, imagesem[frame], &imageindex, width, height);
 
     vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
       .commandBufferCount = 1,
-      .pCommandBuffers = &buffer,
+      .pCommandBuffers = &imagebuffer[frame],
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &imagesem,
+      .pWaitSemaphores = &imagesem[frame],
       .signalSemaphoreCount = 1,
       .pSignalSemaphores = &images[imageindex].finished,
       .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-    }, NULL);
+    }, imagefence[frame]);
+    imagefencecheck[frame] = true;
     
     err = vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -197,6 +193,9 @@ int main(int argc, char **argv) {
       .pImageIndices = &imageindex,
     });
 
+
+    frame = (frame+1) % 1; // two frames in flight at a time
+
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }
@@ -205,10 +204,12 @@ int main(int argc, char **argv) {
   vkDeviceWaitIdle(device.device);
 
   releaseimageviews(device, images);
-  vkFreeCommandBuffers(device.device, pool, 1, &buffer);
+  vkFreeCommandBuffers(device.device, pool, 1, imagebuffer);
   vkDestroyCommandPool(device.device, pool, NULL);
-  vkDestroySemaphore(device.device, imagesem, NULL);
-  vkDestroySemaphore(device.device, finishedrender, NULL);
+  vkDestroySemaphore(device.device, imagesem[0], NULL);
+  vkDestroySemaphore(device.device, imagesem[1], NULL);
+  vkDestroyFence(device.device, imagefence[0], NULL);
+  vkDestroyFence(device.device, imagefence[1], NULL);
   vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
   vkDestroyPipeline(device.device, graphicspipeline, NULL);
   vkDestroyDevice(device.device, NULL);

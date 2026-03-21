@@ -79,7 +79,7 @@ struct selectdeviceret selectdevice(VkInstance instance) {
 
   unsigned int extensions = 1;
   const char *extensionsstr[1] = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
   };
 
   VkPhysicalDeviceVulkan13Features features13 = {0};
