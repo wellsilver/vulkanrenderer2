@@ -158,20 +158,18 @@ int main(int argc, char **argv) {
     uint32_t imageindex;
     
     // Get the image for rendering
-    VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, 0, imagesem, NULL, &imageindex);
+    VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, 10000, imagesem, NULL, &imageindex);
     if (err == VK_ERROR_OUT_OF_DATE_KHR) {
+      SDL_GetWindowSizeInPixels(window, &width, &height);
       releaseimageviews(device, images);
       vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
       swapchain = createswapchain(device, windowsurface);
-      SDL_GetWindowSizeInPixels(window, &width, &height);
       if (swapchain.swapchain == NULL) {
         SDL_Log("Couldnt recreate swapchain\n");
-        return 7;
       }
       images = createimageviews(device, swapchain);
       if (images == NULL) {
         SDL_Log("Couldnt recreate imageviews\n");
-        return 7;
       }
       continue;
     }
@@ -183,32 +181,28 @@ int main(int argc, char **argv) {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
       .commandBufferCount = 1,
       .pCommandBuffers = &buffer,
-      .waitSemaphoreCount=1,
+      .waitSemaphoreCount = 1,
       .pWaitSemaphores = &imagesem,
       .signalSemaphoreCount = 1,
-      .pSignalSemaphores = &finishedrender,
+      .pSignalSemaphores = &images[imageindex].finished,
       .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
     }, NULL);
     
     err = vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &finishedrender,
+      .pWaitSemaphores = &images[imageindex].finished,
       .swapchainCount = 1,
       .pSwapchains = &swapchain.swapchain,
       .pImageIndices = &imageindex,
     });
-    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
-
-    }
-    
-    vkQueueWaitIdle(device.queue);
 
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }
   }
 
+  vkDeviceWaitIdle(device.device);
 
   releaseimageviews(device, images);
   vkFreeCommandBuffers(device.device, pool, 1, &buffer);

@@ -81,6 +81,10 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
       SDL_free(ret);
       return NULL;
     }
+
+    vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    }, NULL, &ret[loop].finished);
   }
 
   ret[swapchainimagecount+1].image = NULL;
@@ -91,6 +95,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
 void releaseimageviews(struct selectdeviceret device, struct imageview *images) {
   for (unsigned int loop=0;images[loop].image != NULL;loop++) {
     vkDestroyImageView(device.device, images[loop].view, NULL);
+    vkDestroySemaphore(device.device, images[loop].finished, NULL);
   }
   SDL_free(images);
 }

@@ -10,6 +10,8 @@ struct selectdeviceret {
 struct imageview {
   VkImage image;
   VkImageView view;
+  VkSemaphore ready;
+  VkSemaphore finished;
 };
 
 // Can return NULL, select a supported device
