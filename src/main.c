@@ -4,6 +4,8 @@
 
 #include "gpu/gpu.h"
 
+#define FRAMES_IN_FLIGHT 2
+
 VkInstance makeinstance() {
   VkInstance ret;
 
@@ -136,21 +138,23 @@ int main(int argc, char **argv) {
   VkCommandPool pool;
   vkCreateCommandPool(device.device, &(struct VkCommandPoolCreateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT}, NULL, &pool);
   
-  VkCommandBuffer imagebuffer[2];
-  vkAllocateCommandBuffers(device.device, &(VkCommandBufferAllocateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,.commandPool=pool,.commandBufferCount=2,.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY}, imagebuffer);
+  VkCommandBuffer imagebuffer[FRAMES_IN_FLIGHT];
+  vkAllocateCommandBuffers(device.device, &(VkCommandBufferAllocateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,.commandPool=pool,.commandBufferCount=FRAMES_IN_FLIGHT,.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY}, imagebuffer);
 
-  VkSemaphore imagesem[2];
-  for (unsigned int loop=0;loop<2;loop++)
+  VkSemaphore imagesem[FRAMES_IN_FLIGHT];
+  for (unsigned int loop=0;loop<FRAMES_IN_FLIGHT;loop++)
     vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     }, NULL, &imagesem[loop]);
   
-  bool imagefencecheck[2] = {false, false};
-  VkFence imagefence[2];
-  for (unsigned int loop=0;loop<2;loop++)
+  bool imagefencecheck[FRAMES_IN_FLIGHT];
+  VkFence imagefence[FRAMES_IN_FLIGHT];
+  for (unsigned int loop=0;loop<FRAMES_IN_FLIGHT;loop++) {
     vkCreateFence(device.device, &(VkFenceCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     }, NULL, &imagefence[loop]);
+    imagefencecheck[loop] = false;
+  }
 
   bool active = true;
   SDL_Event currentevent;
@@ -194,7 +198,7 @@ int main(int argc, char **argv) {
     });
 
 
-    frame = (frame+1) % 1; // two frames in flight at a time
+    frame = (frame+1) % FRAMES_IN_FLIGHT; // two frames in flight at a time
 
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
@@ -204,7 +208,7 @@ int main(int argc, char **argv) {
   vkDeviceWaitIdle(device.device);
 
   releaseimageviews(device, images);
-  vkFreeCommandBuffers(device.device, pool, 1, imagebuffer);
+  vkFreeCommandBuffers(device.device, pool, FRAMES_IN_FLIGHT, imagebuffer);
   vkDestroyCommandPool(device.device, pool, NULL);
   vkDestroySemaphore(device.device, imagesem[0], NULL);
   vkDestroySemaphore(device.device, imagesem[1], NULL);
