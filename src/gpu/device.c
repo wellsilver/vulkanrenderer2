@@ -90,6 +90,7 @@ struct selectdeviceret selectdevice(VkInstance instance) {
   features11.shaderDrawParameters = VK_TRUE;
   VkPhysicalDeviceFeatures2 features2 = {0};
   features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+  features2.features.sampleRateShading = VK_TRUE;
   features2.pNext = &features11;
   features11.pNext = &features13;
 

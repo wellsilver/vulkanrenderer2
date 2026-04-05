@@ -77,8 +77,8 @@ VkPipeline creategraphicspipeline(VkDevice device, VkFormat swapchainformat) {
     },
     .pMultisampleState = &(VkPipelineMultisampleStateCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-      .sampleShadingEnable = VK_FALSE,
-      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+      .sampleShadingEnable = VK_TRUE,
+      .rasterizationSamples = VK_SAMPLE_COUNT_4_BIT,
     },
     .pColorBlendState = &(VkPipelineColorBlendStateCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,

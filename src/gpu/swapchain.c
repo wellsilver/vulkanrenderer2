@@ -82,6 +82,18 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
       return NULL;
     }
 
+    vkCreateImage(device.device, &(VkImageCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .samples = VK_SAMPLE_COUNT_4_BIT,
+      .format = swappy.format.format,
+      .extent = &(VkExtent2D) {.width=480,.height=480},
+    }, NULL, &ret[loop].sampled);
+
+    vkCreateImageView(device.device, &(VkImageViewCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      
+    }, NULL, &ret[loop].sampledview);
+
     vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     }, NULL, &ret[loop].finished);

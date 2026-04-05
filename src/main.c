@@ -47,7 +47,7 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
 
   vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .image = images[*imageindex].image,
+    .image = images[*imageindex].sampled,
     .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -62,8 +62,11 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
     .layerCount=1,
     .colorAttachmentCount=1,
     .pColorAttachments=&(VkRenderingAttachmentInfo) {.sType=VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-    .imageView = images[*imageindex].view,
+    .imageView = images[*imageindex].sampledview,
     .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    .resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT,
+    .resolveImageView = images[*imageindex].view, // TODO
+    .resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     },
   });
 
@@ -86,7 +89,7 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
     .subresourceRange.levelCount = 1,
     .subresourceRange.baseArrayLayer = 0,
     .subresourceRange.layerCount = 1,
-  });
+  }); 
 
   vkEndCommandBuffer(buffer);
 }

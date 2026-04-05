@@ -10,6 +10,8 @@ struct selectdeviceret {
 struct imageview {
   VkImage image;
   VkImageView view;
+  VkImage sampled;
+  VkImageView sampledview;
   VkSemaphore finished;
   unsigned int length;
 };
