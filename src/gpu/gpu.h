@@ -11,6 +11,7 @@ struct imageview {
   VkImage image;
   VkImageView view;
   VkImage sampled;
+  VkDeviceMemory sampledmemory;
   VkImageView sampledview;
   VkSemaphore finished;
   unsigned int length;

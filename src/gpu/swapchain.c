@@ -86,12 +86,34 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .samples = VK_SAMPLE_COUNT_4_BIT,
       .format = swappy.format.format,
-      .extent = &(VkExtent2D) {.width=480,.height=480},
+      .extent = (VkExtent3D) {.width=480,.height=480, .depth=1},
+      .imageType = VK_IMAGE_TYPE_2D,
+      .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      .mipLevels = 1,
+      .tiling = VK_IMAGE_TILING_OPTIMAL
     }, NULL, &ret[loop].sampled);
+
+    VkMemoryRequirements memrequirements;
+    vkGetImageMemoryRequirements(device.device, ret[loop].sampled, &memrequirements); 
+    
+    vkAllocateMemory(device.device, &(VkMemoryAllocateInfo) {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .allocationSize = memrequirements.size,
+      .memoryTypeIndex = 0
+    }, NULL, &ret[loop].sampledmemory);
+    vkBindImageMemory(device.device, ret[loop].sampled, ret[loop].sampledmemory, 0);
 
     vkCreateImageView(device.device, &(VkImageViewCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-      
+      .image = ret[loop].sampled,
+      .format = swappy.format.format,
+      .viewType = VK_IMAGE_VIEW_TYPE_2D,
+      .components = (VkComponentMapping) {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+      .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+      .subresourceRange.baseMipLevel = 0,
+      .subresourceRange.levelCount = 1,
+      .subresourceRange.baseArrayLayer = 0,
+      .subresourceRange.layerCount = 1
     }, NULL, &ret[loop].sampledview);
 
     vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
