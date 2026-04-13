@@ -89,7 +89,7 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
     .subresourceRange.levelCount = 1,
     .subresourceRange.baseArrayLayer = 0,
     .subresourceRange.layerCount = 1,
-  }); 
+  });
 
   vkEndCommandBuffer(buffer);
 }
@@ -206,6 +206,7 @@ int main(int argc, char **argv) {
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }
+    active = false;
   }
 
   vkDeviceWaitIdle(device.device);

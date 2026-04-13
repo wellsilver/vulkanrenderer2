@@ -88,8 +88,10 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
       .format = swappy.format.format,
       .extent = (VkExtent3D) {.width=480,.height=480, .depth=1},
       .imageType = VK_IMAGE_TYPE_2D,
-      .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .arrayLayers = 1,
       .mipLevels = 1,
+      .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
       .tiling = VK_IMAGE_TILING_OPTIMAL
     }, NULL, &ret[loop].sampled);
 
@@ -99,7 +101,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
     vkAllocateMemory(device.device, &(VkMemoryAllocateInfo) {
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .allocationSize = memrequirements.size,
-      .memoryTypeIndex = 0
+      .memoryTypeIndex = 0,
     }, NULL, &ret[loop].sampledmemory);
     vkBindImageMemory(device.device, ret[loop].sampled, ret[loop].sampledmemory, 0);
 
@@ -128,8 +130,13 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
 
 void releaseimageviews(struct selectdeviceret device, struct imageview *images) {
   for (unsigned int loop=0;loop<3;loop++) {
+    // swapchain
     vkDestroyImageView(device.device, images[loop].view, NULL);
     vkDestroySemaphore(device.device, images[loop].finished, NULL);
+    // Sampled images
+    vkDestroyImage(device.device, images[loop].sampled, NULL);
+    vkDestroyImageView(device.device, images[loop].sampledview, NULL);
+    vkFreeMemory(device.device, images[loop].sampledmemory, NULL);
   }
   SDL_free(images);
 }
