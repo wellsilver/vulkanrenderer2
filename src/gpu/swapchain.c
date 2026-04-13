@@ -133,7 +133,7 @@ void releaseimageviews(struct selectdeviceret device, struct imageview *images) 
     // swapchain
     vkDestroyImageView(device.device, images[loop].view, NULL);
     vkDestroySemaphore(device.device, images[loop].finished, NULL);
-    // Sampled images
+    // Sampled image
     vkDestroyImage(device.device, images[loop].sampled, NULL);
     vkDestroyImageView(device.device, images[loop].sampledview, NULL);
     vkFreeMemory(device.device, images[loop].sampledmemory, NULL);
