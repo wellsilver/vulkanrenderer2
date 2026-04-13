@@ -86,7 +86,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .samples = VK_SAMPLE_COUNT_4_BIT,
       .format = swappy.format.format,
-      .extent = (VkExtent3D) {.width=480,.height=480, .depth=1},
+      .extent = (VkExtent3D) {.width=720,.height=720, .depth=1},
       .imageType = VK_IMAGE_TYPE_2D,
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       .arrayLayers = 1,

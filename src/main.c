@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
   VkInstance instance = makeinstance();
   if (instance == 0) return 2;
 
-  SDL_Window *window = SDL_CreateWindow("Space game", 480, 480, SDL_WINDOW_VULKAN);
+  SDL_Window *window = SDL_CreateWindow("Space game", 720, 720, SDL_WINDOW_VULKAN);
   if (window == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
 
   bool active = true;
   SDL_Event currentevent;
-  int width=480, height=480;
+  int width=720, height=720;
   uint32_t imageindex = 0;
   uint32_t frame = 0;
 
@@ -206,7 +206,7 @@ int main(int argc, char **argv) {
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }
-    active = false;
+    //active = false;
   }
 
   vkDeviceWaitIdle(device.device);
