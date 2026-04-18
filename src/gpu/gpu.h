@@ -25,6 +25,11 @@ struct swapchainandformat {
   VkSurfaceFormatKHR format;
 };
 
+struct vertice {
+  uint32_t meshid;
+  float x,y,z;
+};
+
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
 
 VkPipeline creategraphicspipeline(VkDevice device, VkFormat swapchainformat);

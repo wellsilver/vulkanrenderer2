@@ -170,6 +170,7 @@ int main(int argc, char **argv) {
     }, NULL, &imagefence[loop]);
     imagefencecheck[loop] = false;
   }
+  SDL_Log("Mission Start  : %f seconds\n", (float) SDL_GetTicksNS()/1000000000);
 
   bool active = true;
   SDL_Event currentevent;
@@ -218,7 +219,6 @@ int main(int argc, char **argv) {
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }
-    //active = false;
   }
 
   vkDeviceWaitIdle(device.device);
