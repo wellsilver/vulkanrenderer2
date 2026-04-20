@@ -1,6 +1,5 @@
 struct vertice {
-  uint32_t meshid;
-  float3 vert;
+  [[vk::location(0)]] float2 vert;
 };
 
 struct VertexOutput {
@@ -9,10 +8,10 @@ struct VertexOutput {
 };
 
 [shader("vertex")]
-VertexOutput vertexsmasher(uint vid : SV_VertexID) {
+VertexOutput vertexsmasher(vertice verticedata, uint vid : SV_VertexID) {
   VertexOutput output;
-  output.sv_position = float4(, 0.0, 1.0);
-  output.color = colors[vid];
+  output.sv_position = float4(verticedata.vert, 0.0, 0.0);
+  output.color = float3(1, 1, 1);
   return output;
 }
 

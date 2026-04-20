@@ -42,8 +42,15 @@ VkInstance makeinstance() {
   return ret;
 }
 
-void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex, int width, int height) {
+void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex, int width, int height, VkBuffer vertexbuffer) {
   vkBeginCommandBuffer(buffer, &(VkCommandBufferBeginInfo) {.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags = 0});
+
+  struct vertice vertices[3] = {
+    {1, 1},
+    {-1, 1},
+    {0, -1}
+  };
+  vkCmdUpdateBuffer(buffer, vertexbuffer, 0, sizeof(struct vertice)*3, vertices);
 
   vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -84,6 +91,7 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
 
   vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
+  vkCmdBindVertexBuffers(buffer, 0, 1, &vertexbuffer, &(VkDeviceSize) {0});
   vkCmdSetViewport(buffer, 0, 1, &(VkViewport) {.width = width,.height=height,.x=0,.y=0,.minDepth=0.0f,.maxDepth=1.0f});
   vkCmdSetScissor(buffer, 0, 1, &(VkRect2D) {.extent=(VkExtent2D){.width=width,.height=height},.offset=(VkOffset2D) {.x=0,.y=0}});
 
@@ -150,6 +158,27 @@ int main(int argc, char **argv) {
     return 7;
   }
 
+  VkBuffer vertexbuffer;
+  vkCreateBuffer(device.device, &(VkBufferCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .pQueueFamilyIndices = & (uint32_t) {1},
+    .queueFamilyIndexCount=1,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .size = sizeof(struct vertice)*3,
+    .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+  }, NULL, &vertexbuffer);
+
+  VkMemoryRequirements requirements;
+  vkGetBufferMemoryRequirements(device.device, vertexbuffer, &requirements);
+
+  VkDeviceMemory vertexbuffermemory;
+  vkAllocateMemory(device.device, &(VkMemoryAllocateInfo) {
+    .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+    .memoryTypeIndex = 0,
+    .allocationSize = requirements.size
+  }, NULL, &vertexbuffermemory);
+  vkBindBufferMemory(device.device, vertexbuffer, vertexbuffermemory, 0);
+
   VkCommandPool pool;
   vkCreateCommandPool(device.device, &(struct VkCommandPoolCreateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT}, NULL, &pool);
   
@@ -190,7 +219,7 @@ int main(int argc, char **argv) {
     if (err != VK_SUCCESS) return 1;
 
     vkResetCommandBuffer(imagebuffer[frame], 0);
-    recordcommandbuffer(imagebuffer[frame], device, swapchain, graphicspipeline, images, imagesem[frame], &imageindex, width, height);
+    recordcommandbuffer(imagebuffer[frame], device, swapchain, graphicspipeline, images, imagesem[frame], &imageindex, width, height, vertexbuffer);
 
     vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -219,10 +248,13 @@ int main(int argc, char **argv) {
     while (SDL_PollEvent(&currentevent)) {
       if (currentevent.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) active = false;
     }
+    //active=false;
   }
 
   vkDeviceWaitIdle(device.device);
 
+  vkFreeMemory(device.device, vertexbuffermemory, NULL);
+  vkDestroyBuffer(device.device, vertexbuffer, NULL);
   releaseimageviews(device, images);
   vkFreeCommandBuffers(device.device, pool, FRAMES_IN_FLIGHT, imagebuffer);
   vkDestroyCommandPool(device.device, pool, NULL);

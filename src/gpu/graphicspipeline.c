@@ -56,8 +56,19 @@ VkPipeline creategraphicspipeline(VkDevice device, VkFormat swapchainformat) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
       .pNext = NULL,
       .flags = 0,
-      .vertexAttributeDescriptionCount = 0,
-      .vertexBindingDescriptionCount = 0,
+      .vertexAttributeDescriptionCount = 1,
+      .vertexBindingDescriptionCount = 1,
+      .pVertexAttributeDescriptions = &(VkVertexInputAttributeDescription) {
+        .binding = 0,
+        .location = 0,
+        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset = 0,
+      },
+      .pVertexBindingDescriptions = &(VkVertexInputBindingDescription) {
+        .binding = 0,
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        .stride = sizeof(struct vertice)
+      },
     },
     .pTessellationState = NULL, // Not using tessellation shaders
     .pViewportState = &(VkPipelineViewportStateCreateInfo) {

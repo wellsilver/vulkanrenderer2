@@ -26,8 +26,7 @@ struct swapchainandformat {
 };
 
 struct vertice {
-  uint32_t meshid;
-  float x,y,z;
+  float x,y;
 };
 
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
