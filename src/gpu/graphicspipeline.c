@@ -1,6 +1,8 @@
-#include "gpu.h"
-
 #include <SDL3/SDL.h>
+#include <vulkan/vulkan.h>
+
+#include "common.h"
+#include "graphicspipeline.h"
 
 VkShaderModule createshadermodule(VkDevice device, const char *code, uint32_t size) {
   VkShaderModule ret;

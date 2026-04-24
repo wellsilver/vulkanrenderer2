@@ -1,6 +1,8 @@
-#include "gpu.h"
-
+#include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
+
+#include "swapchain.h"
+#include "device.h"
 
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface) {
   VkResult err;
