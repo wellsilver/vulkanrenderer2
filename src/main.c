@@ -46,9 +46,9 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
   vkBeginCommandBuffer(buffer, &(VkCommandBufferBeginInfo) {.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags = 0});
 
   struct vertice vertices[3] = {
-    {1, 1},
-    {-1, 1},
-    {0, -1}
+    {0.0f, -0.5f},
+    {0.5f, 0.5f},
+    {-0.5f, 0.5f},
   };
   vkCmdUpdateBuffer(buffer, vertexbuffer, 0, sizeof(struct vertice)*3, vertices);
 

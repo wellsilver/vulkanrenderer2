@@ -1,23 +1,22 @@
-struct vertice {
-  [[vk::location(0)]] float2 vert;
+struct VSInput {
+  float2 inPosition;
 };
 
-struct VertexOutput {
+struct VSOutput
+{
+  float4 pos : SV_Position;
   float3 color;
-  float4 sv_position : SV_Position;
 };
 
 [shader("vertex")]
-VertexOutput vertexsmasher(vertice verticedata, uint vid : SV_VertexID) {
-  VertexOutput output;
-  output.sv_position = float4(verticedata.vert, 0.0, 0.0);
-  output.color = float3(1, 1, 1);
+VSOutput vertexsmasher(VSInput input) {
+  VSOutput output;
+  output.pos = float4(input.inPosition, 0.0, 1.0);
+  output.color = float3(1,1,1);
   return output;
 }
 
 [shader("fragment")]
-float4 fragger(VertexOutput inVert) : SV_Target
-{
-  float3 color = inVert.color;
-  return float4(color, 1.0);
+float4 fragger(VSOutput vertIn) : SV_TARGET {
+  return float4(vertIn.color, 1.0);
 }
