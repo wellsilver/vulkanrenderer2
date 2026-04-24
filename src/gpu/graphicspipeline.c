@@ -56,13 +56,21 @@ VkPipeline creategraphicspipeline(VkDevice device, VkFormat swapchainformat) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
       .pNext = NULL,
       .flags = 0,
-      .vertexAttributeDescriptionCount = 1,
+      .vertexAttributeDescriptionCount = 2,
       .vertexBindingDescriptionCount = 1,
-      .pVertexAttributeDescriptions = &(VkVertexInputAttributeDescription) {
-        .binding = 0,
-        .location = 0,
-        .format = VK_FORMAT_R32G32_SFLOAT,
-        .offset = 0,
+      .pVertexAttributeDescriptions = (VkVertexInputAttributeDescription[]) {
+        { // Position
+          .binding = 0,
+          .location = 0,
+          .format = VK_FORMAT_R32G32B32_SFLOAT,
+          .offset = 0,
+        },
+        { // Color
+          .binding = 0,
+          .location = 1,
+          .format = VK_FORMAT_R32G32B32_SFLOAT,
+          .offset = 4*3,
+        }
       },
       .pVertexBindingDescriptions = &(VkVertexInputBindingDescription) {
         .binding = 0,

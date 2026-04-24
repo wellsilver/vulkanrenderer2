@@ -26,7 +26,8 @@ struct swapchainandformat {
 };
 
 struct vertice {
-  float x,y;
+  float x,y,z;
+  float r,g,b;
 };
 
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);

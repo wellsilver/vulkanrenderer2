@@ -46,10 +46,11 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
   vkBeginCommandBuffer(buffer, &(VkCommandBufferBeginInfo) {.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags = 0});
 
   struct vertice vertices[3] = {
-    {0.0f, -0.5f},
-    {0.5f, 0.5f},
-    {-0.5f, 0.5f},
+    {0.0f, -0.5f, 0.0f, 1.0f, 0, 0},
+    {0.5f, 0.5f, 0.0f, 0, 1.0f, 0},
+    {-0.5f, 0.5f, 0.0f, 0, 0, 1.0f},
   };
+
   vkCmdUpdateBuffer(buffer, vertexbuffer, 0, sizeof(struct vertice)*3, vertices);
 
   vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
