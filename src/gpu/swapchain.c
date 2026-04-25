@@ -28,10 +28,11 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
     return ret;
   }
   
-  VkSwapchainCreateInfoKHR createinfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,0};
+  VkSwapchainCreateInfoKHR createinfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, 0};
 
   createinfo.surface = surface;
-  createinfo.minImageCount = 3;
+  createinfo.minImageCount = capabilities.minImageCount;
+  SDL_Log("requested Image count %i\n", capabilities.minImageCount);
   createinfo.imageFormat = idealformat.format;
   createinfo.imageColorSpace = idealformat.colorSpace;
   createinfo.imageExtent = capabilities.currentExtent;
@@ -42,7 +43,7 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
   uint32_t queuefamily = 1; // only one queue family is used at the moment
   createinfo.pQueueFamilyIndices = &queuefamily;
   createinfo.preTransform = capabilities.currentTransform;
-  createinfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+  createinfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
   createinfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   createinfo.clipped = VK_TRUE;
 
@@ -131,7 +132,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
 }
 
 void releaseimageviews(struct selectdeviceret device, struct imageview *images) {
-  for (unsigned int loop=0;loop<3;loop++) {
+  for (unsigned int loop=0;loop < images[0].length;loop++) {
     // swapchain
     vkDestroyImageView(device.device, images[loop].view, NULL);
     vkDestroySemaphore(device.device, images[loop].finished, NULL);
