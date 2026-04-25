@@ -16,7 +16,7 @@ VkInstance makeinstance() {
     .pNext = NULL,
     .pApplicationName = "Space game",
     .applicationVersion = 1,
-    .pEngineName = "",
+    .pEngineName = "wellsilver_VURender2",
     .engineVersion = 0,
     .apiVersion = VK_API_VERSION_1_3, // TODO Update this to whatever api version the extensions are.. VK_KHR_DYNAMIC_RENDERING is default (and doesnt even suffix with khr) on 1.3
   };
@@ -123,31 +123,31 @@ int gpu(SDL_Window *window) {
 
   VkSurfaceKHR windowsurface;
   if (!SDL_Vulkan_CreateSurface(window, instance, NULL, &windowsurface)) {
-    SDL_Log("Could not create VkSurface %s\n", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create VkSurface %s\n", SDL_GetError());
     return 5;
   }
 
   struct selectdeviceret device = selectdevice(instance);
   if (device.device == NULL) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot find a Vulkan device\n Requirements:\nAtleast Vulkan 1.3, with a graphic+compute+present queue)\n");
+    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Cannot find a Vulkan device\n Requirements:\nAtleast Vulkan 1.3, with a graphic+compute+present queue)\n");
     return 4;
   }
 
   struct swapchainandformat swapchain = createswapchain(device, windowsurface);
   if (swapchain.swapchain == NULL) {
-    SDL_Log("Could not create VkSwapchainKHR %s\n", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create VkSwapchainKHR %s\n", SDL_GetError());
     return 6;
   }
 
   VkPipeline graphicspipeline = creategraphicspipeline(device.device, swapchain.format.format);
   if (graphicspipeline == NULL) {
-    SDL_Log("Could not create VkPipeline (graphics) %s\n", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create VkPipeline (graphics) %s\n", SDL_GetError());
     return 7;
   }
 
   struct imageview *images = createimageviews(device, swapchain);
   if (images == NULL) {
-    SDL_Log("Could not create imageviews\n");
+    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create imageviews\n");
     return 7;
   }
 
@@ -193,7 +193,7 @@ int gpu(SDL_Window *window) {
     imagefencecheck[loop] = false;
   }
 
-  SDL_Log("RENDER  STARTED : %f seconds\n", (float) SDL_GetTicksNS()/1000000000);
+  SDL_LogInfo(SDL_LOG_CATEGORY_GPU, "GPU   : Started %f seconds\n", (float) SDL_GetTicksNS()/1000000000);
 
   bool active = true;
   SDL_Event currentevent;
@@ -235,7 +235,6 @@ int gpu(SDL_Window *window) {
       .pSwapchains = &swapchain.swapchain,
       .pImageIndices = &imageindex,
     });
-
 
     frame = (frame+1) % FRAMES_IN_FLIGHT; // two frames in flight at a time
 
