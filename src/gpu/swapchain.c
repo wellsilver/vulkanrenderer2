@@ -55,7 +55,7 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
   return (struct swapchainandformat) {.format = idealformat,.swapchain = swapchain};
 }
 
-struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy) {
+struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy, uint32_t width, uint32_t height) {
   // Retrieve the images
   uint32_t swapchainimagecount;
   vkGetSwapchainImagesKHR(device.device, swappy.swapchain, &swapchainimagecount, NULL);
@@ -88,7 +88,7 @@ struct imageview *createimageviews(struct selectdeviceret device, struct swapcha
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .samples = VK_SAMPLE_COUNT_4_BIT,
       .format = swappy.format.format,
-      .extent = (VkExtent3D) {.width=720,.height=720, .depth=1},
+      .extent = (VkExtent3D) {.width=width,.height=height, .depth=1},
       .imageType = VK_IMAGE_TYPE_2D,
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       .arrayLayers = 1,

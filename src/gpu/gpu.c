@@ -44,16 +44,10 @@ VkInstance makeinstance() {
   return ret;
 }
 
-void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex, int width, int height, VkBuffer vertexbuffer) {
+void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, struct swapchainandformat swapchain, VkPipeline graphicspipeline, struct imageview *images, VkSemaphore imagesem, uint32_t *imageindex, int width, int height, VkBuffer vertexbuffer, unsigned int lenvertices, struct vertice *vertices) {
   vkBeginCommandBuffer(buffer, &(VkCommandBufferBeginInfo) {.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags = 0});
 
-  struct vertice vertices[3] = {
-    {0.0f, -0.5f, 0.0f, 1.0f, 0, 0},
-    {0.5f, 0.5f, 0.0f, 0, 1.0f, 0},
-    {-0.5f, 0.5f, 0.0f, 0, 0, 1.0f},
-  };
-
-  vkCmdUpdateBuffer(buffer, vertexbuffer, 0, sizeof(struct vertice)*3, vertices);
+  vkCmdUpdateBuffer(buffer, vertexbuffer, 0, lenvertices*(sizeof(struct vertice)), vertices);
 
   vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -98,7 +92,7 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
   vkCmdSetViewport(buffer, 0, 1, &(VkViewport) {.width = width,.height=height,.x=0,.y=0,.minDepth=0.0f,.maxDepth=1.0f});
   vkCmdSetScissor(buffer, 0, 1, &(VkRect2D) {.extent=(VkExtent2D){.width=width,.height=height},.offset=(VkOffset2D) {.x=0,.y=0}});
 
-  vkCmdDraw(buffer, 3, 1, 0, 0);
+  vkCmdDraw(buffer, lenvertices, 1, 0, 0);
 
   vkCmdEndRendering(buffer);
 
@@ -117,12 +111,12 @@ void recordcommandbuffer(VkCommandBuffer buffer, struct selectdeviceret device, 
   vkEndCommandBuffer(buffer);
 }
 
-int gpu(SDL_Window *window) {
+int gpu(struct gpu_threadarguments *args) {
   VkInstance instance = makeinstance();
   if (instance == 0) return 2;
 
   VkSurfaceKHR windowsurface;
-  if (!SDL_Vulkan_CreateSurface(window, instance, NULL, &windowsurface)) {
+  if (!SDL_Vulkan_CreateSurface(args->window, instance, NULL, &windowsurface)) {
     SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create VkSurface %s\n", SDL_GetError());
     return 5;
   }
@@ -145,7 +139,7 @@ int gpu(SDL_Window *window) {
     return 7;
   }
 
-  struct imageview *images = createimageviews(device, swapchain);
+  struct imageview *images = createimageviews(device, swapchain, 720, 720);
   if (images == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create imageviews\n");
     return 7;
@@ -172,6 +166,16 @@ int gpu(SDL_Window *window) {
   }, NULL, &vertexbuffermemory);
   vkBindBufferMemory(device.device, vertexbuffer, vertexbuffermemory, 0);
 
+  args->lenvertices = 3;
+  args->vertices = SDL_malloc(3*sizeof(struct vertice));
+
+  struct vertice vertices_template[3] = {
+    {0.0f, -0.5f, 0.0f, 1.0f, 0, 0},
+    {0.5f, 0.5f, 0.0f, 0, 1.0f, 0},
+    {-0.5f, 0.5f, 0.0f, 0, 0, 1.0f},
+  };
+  SDL_memcpy(args->vertices, vertices_template, sizeof(struct vertice)*3);
+  
   VkCommandPool pool;
   vkCreateCommandPool(device.device, &(struct VkCommandPoolCreateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT}, NULL, &pool);
   
@@ -210,10 +214,20 @@ int gpu(SDL_Window *window) {
 
     // Get the image for rendering
     VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, UINT64_MAX, imagesem[frame], NULL, &imageindex);
-    if (err != VK_SUCCESS) return 1;
+    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
+      vkWaitForFences(device.device, FRAMES_IN_FLIGHT, imagefence, 1, UINT64_MAX);
+      vkResetFences(device.device, 2, imagefence);
+      vkDeviceWaitIdle(device.device);
+      releaseimageviews(device, images);
+      vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
+      swapchain = createswapchain(device, windowsurface);
+      images = createimageviews(device, swapchain, width, height);
+      continue;
+    }
+    else if (err != VK_SUCCESS) return 1;
 
     vkResetCommandBuffer(imagebuffer[frame], 0);
-    recordcommandbuffer(imagebuffer[frame], device, swapchain, graphicspipeline, images, imagesem[frame], &imageindex, width, height, vertexbuffer);
+    recordcommandbuffer(imagebuffer[frame], device, swapchain, graphicspipeline, images, imagesem[frame], &imageindex, width, height, vertexbuffer, args->lenvertices, args->vertices);
 
     vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -260,5 +274,4 @@ int gpu(SDL_Window *window) {
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);
-  SDL_DestroyWindow(window);
 }

@@ -19,5 +19,5 @@ struct swapchainandformat {
 
 struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfaceKHR surface);
 
-struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy);
+struct imageview *createimageviews(struct selectdeviceret device, struct swapchainandformat swappy, uint32_t width, uint32_t height);
 void releaseimageviews(struct selectdeviceret device, struct imageview *images);

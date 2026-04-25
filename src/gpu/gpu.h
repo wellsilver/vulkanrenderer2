@@ -1,3 +1,14 @@
 #include <SDL3/SDL.h>
 
-int gpu(SDL_Window *window);
+struct vertice {
+  float x,y,z;
+  float r,g,b;
+};
+
+struct gpu_threadarguments {
+  SDL_Window *window;
+  struct vertice *vertices;
+  unsigned int lenvertices;
+};
+
+int gpu(struct gpu_threadarguments *);
