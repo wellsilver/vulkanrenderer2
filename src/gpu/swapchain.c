@@ -32,7 +32,6 @@ struct swapchainandformat createswapchain(struct selectdeviceret device, VkSurfa
 
   createinfo.surface = surface;
   createinfo.minImageCount = capabilities.minImageCount;
-  SDL_Log("requested Image count %i\n", capabilities.minImageCount);
   createinfo.imageFormat = idealformat.format;
   createinfo.imageColorSpace = idealformat.colorSpace;
   createinfo.imageExtent = capabilities.currentExtent;
