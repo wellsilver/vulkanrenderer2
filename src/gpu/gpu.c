@@ -6,7 +6,7 @@
 #include "graphicspipeline.h"
 #include "swapchain.h"
 
-#define FRAMES_IN_FLIGHT 2
+#define FRAMES_IN_FLIGHT 1
 
 VkInstance makeinstance() {
   VkInstance ret;
@@ -212,19 +212,17 @@ int gpu(struct gpu_threadarguments *args) {
       imagefencecheck[frame] = false;
     }
 
-    // Get the image for rendering
     VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, UINT64_MAX, imagesem[frame], NULL, &imageindex);
-    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
-      vkWaitForFences(device.device, FRAMES_IN_FLIGHT, imagefence, 1, UINT64_MAX);
-      vkResetFences(device.device, 2, imagefence);
+    if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
+      SDL_Log("Out of date\n");
       vkDeviceWaitIdle(device.device);
       releaseimageviews(device, images);
       vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
       swapchain = createswapchain(device, windowsurface);
+      SDL_GetWindowSizeInPixels(args->window, &width, &height);
       images = createimageviews(device, swapchain, width, height);
       continue;
     }
-    else if (err != VK_SUCCESS) return 1;
 
     vkResetCommandBuffer(imagebuffer[frame], 0);
     recordcommandbuffer(imagebuffer[frame], device, swapchain, graphicspipeline, images, imagesem[frame], &imageindex, width, height, vertexbuffer, args->lenvertices, args->vertices);
