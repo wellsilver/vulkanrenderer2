@@ -6,7 +6,7 @@
 #include "graphicspipeline.h"
 #include "swapchain.h"
 
-#define FRAMES_IN_FLIGHT 1
+#define FRAMES_IN_FLIGHT 2
 
 VkInstance makeinstance() {
   VkInstance ret;
@@ -139,12 +139,6 @@ int gpu(struct gpu_threadarguments *args) {
     return 7;
   }
 
-  struct imageview *images = createimageviews(device, swapchain, 720, 720);
-  if (images == NULL) {
-    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create imageviews\n");
-    return 7;
-  }
-
   VkBuffer vertexbuffer;
   vkCreateBuffer(device.device, &(VkBufferCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -167,14 +161,14 @@ int gpu(struct gpu_threadarguments *args) {
   vkBindBufferMemory(device.device, vertexbuffer, vertexbuffermemory, 0);
 
   args->lenvertices = 3;
-  args->vertices = SDL_malloc(3*sizeof(struct vertice));
+  args->vertices = SDL_malloc(args->lenvertices*sizeof(struct vertice));
 
-  struct vertice vertices_template[3] = {
+  struct vertice vertices_template[6] = {
     {0.0f, -0.5f, 0.0f, 1.0f, 0, 0},
     {0.5f, 0.5f, 0.0f, 0, 1.0f, 0},
     {-0.5f, 0.5f, 0.0f, 0, 0, 1.0f},
   };
-  SDL_memcpy(args->vertices, vertices_template, sizeof(struct vertice)*3);
+  SDL_memcpy(args->vertices, vertices_template, sizeof(struct vertice)*args->lenvertices);
   
   VkCommandPool pool;
   vkCreateCommandPool(device.device, &(struct VkCommandPoolCreateInfo) {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT}, NULL, &pool);
@@ -201,9 +195,17 @@ int gpu(struct gpu_threadarguments *args) {
 
   bool active = true;
   SDL_Event currentevent;
-  int width=720, height=720;
+  int width, height;
+  SDL_GetWindowSizeInPixels(args->window, &width, &height);
+
   uint32_t imageindex = 0;
   uint32_t frame = 0;
+
+  struct imageview *images = createimageviews(device, swapchain, width, height);
+  if (images == NULL) {
+    SDL_LogError(SDL_LOG_CATEGORY_GPU, "Could not create imageviews\n");
+    return 7;
+  }
 
   while (active) {
     if (imagefencecheck[frame]) { // Wait for the frame before last to finish before starting on the next one
@@ -213,14 +215,19 @@ int gpu(struct gpu_threadarguments *args) {
     }
 
     VkResult err = vkAcquireNextImageKHR(device.device, swapchain.swapchain, UINT64_MAX, imagesem[frame], NULL, &imageindex);
-    if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
+    if (err == VK_ERROR_OUT_OF_DATE_KHR) {
       SDL_Log("Out of date\n");
+
       vkDeviceWaitIdle(device.device);
+
       releaseimageviews(device, images);
       vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
-      swapchain = createswapchain(device, windowsurface);
+
       SDL_GetWindowSizeInPixels(args->window, &width, &height);
+
+      swapchain = createswapchain(device, windowsurface);
       images = createimageviews(device, swapchain, width, height);
+
       continue;
     }
 
@@ -247,6 +254,21 @@ int gpu(struct gpu_threadarguments *args) {
       .pSwapchains = &swapchain.swapchain,
       .pImageIndices = &imageindex,
     });
+    if (err == VK_SUBOPTIMAL_KHR || err == VK_ERROR_OUT_OF_DATE_KHR) {
+      SDL_Log("Out of date\n");
+
+      vkDeviceWaitIdle(device.device);
+
+      releaseimageviews(device, images);
+      vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
+
+      SDL_GetWindowSizeInPixels(args->window, &width, &height);
+
+      swapchain = createswapchain(device, windowsurface);
+      images = createimageviews(device, swapchain, width, height);
+
+      continue;
+    }
 
     frame = (frame+1) % FRAMES_IN_FLIGHT; // two frames in flight at a time
 
@@ -263,10 +285,10 @@ int gpu(struct gpu_threadarguments *args) {
   releaseimageviews(device, images);
   vkFreeCommandBuffers(device.device, pool, FRAMES_IN_FLIGHT, imagebuffer);
   vkDestroyCommandPool(device.device, pool, NULL);
-  vkDestroySemaphore(device.device, imagesem[0], NULL);
-  vkDestroySemaphore(device.device, imagesem[1], NULL);
-  vkDestroyFence(device.device, imagefence[0], NULL);
-  vkDestroyFence(device.device, imagefence[1], NULL);
+  for (unsigned int loop=0;loop<FRAMES_IN_FLIGHT;loop++) {
+    vkDestroySemaphore(device.device, imagesem[loop], NULL);
+    vkDestroyFence(device.device, imagefence[loop], NULL);
+  }
   vkDestroySwapchainKHR(device.device, swapchain.swapchain, NULL);
   vkDestroyPipeline(device.device, graphicspipeline, NULL);
   vkDestroyDevice(device.device, NULL);
