@@ -59,7 +59,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicaldevice, windowsurface, &surfacecapabilities);
 
   VkSwapchainKHR swapchain;
-  if (VK_SUCCESS != vkCreateSwapchainKHR(device.device, &(VkSwapchainCreateInfoKHR) {
+  err = vkCreateSwapchainKHR(device.device, &(VkSwapchainCreateInfoKHR) {
     .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
     .clipped = VK_FALSE,
     .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
@@ -69,20 +69,254 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     .imageExtent = surfacecapabilities.currentExtent,
     .imageFormat = surfaceformat.format,
     .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
     .minImageCount = surfacecapabilities.minImageCount,
     .queueFamilyIndexCount = 1,
     .pQueueFamilyIndices = &(uint32_t) {0},
     .presentMode = VK_PRESENT_MODE_FIFO_KHR,
     .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
     .surface = windowsurface,
-  }, NULL, &swapchain)) {
-    SDL_LogError(SDL_LOG_CATEGORY_GPU, "vkCreateSwapchainKHR Error - %i\n", err);
-    *active = 0;
-    return; 
+  }, NULL, &swapchain);
+
+  uint32_t swapchainimagecount;
+  vkGetSwapchainImagesKHR(device.device, swapchain, &swapchainimagecount, NULL);
+  VkImage swapchainimages[swapchainimagecount];
+  VkImageView swapchainimageviews[swapchainimagecount];
+  VkSampler swapchainsamplers[swapchainimagecount];
+  VkSemaphore framefinishrendersemaphore[swapchainimagecount];
+  VkFence framefinishrenderfence[swapchainimagecount];
+  VkSemaphore frameimagereadysemaphore[swapchainimagecount];
+  bool framefenceactivated[swapchainimagecount];
+  //VkSemaphore swapchainrenderfinishsemaphore[swapchainimagecount];
+  vkGetSwapchainImagesKHR(device.device, swapchain, &swapchainimagecount, swapchainimages);
+
+  for (unsigned int loop=0;loop<swapchainimagecount;loop++) {
+    vkCreateImageView(device.device, &(VkImageViewCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      // .components all is 0, leave it be
+      .viewType = VK_IMAGE_VIEW_TYPE_2D,
+      .components = (VkComponentMapping) {0,0,0,0},
+      .flags = 0,
+      .format = surfaceformat.format,
+      .image = swapchainimages[loop],
+      .subresourceRange = (VkImageSubresourceRange) {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseArrayLayer = 0,
+        .baseMipLevel = 0,
+        .layerCount = 1,
+        .levelCount = 1
+      }
+    }, NULL, &swapchainimageviews[loop]);
+    vkCreateSampler(device.device, &(VkSamplerCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+      .magFilter = VK_FILTER_LINEAR,
+      .minFilter = VK_FILTER_LINEAR,
+      .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+      .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+      .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+      .anisotropyEnable = 0,
+      .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+      .unnormalizedCoordinates = VK_FALSE,
+      .compareEnable = VK_FALSE,
+      .compareOp = VK_COMPARE_OP_ALWAYS,
+      .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+      .mipLodBias = 0,
+      .minLod = 0,
+      .maxLod = 0,
+    }, NULL, &swapchainsamplers[loop]);
+    vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    }, NULL, &framefinishrendersemaphore[loop]);
+    vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    }, NULL, &frameimagereadysemaphore[loop]);
+    vkCreateFence(device.device, &(VkFenceCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+    }, NULL, &framefinishrenderfence[loop]);
+    framefenceactivated[loop] = 0;
   }
 
-  *active = 0;
+  VkShaderModule shadermodule;
+  vkCreateShaderModule(device.device, &(VkShaderModuleCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+    .flags = 0,
+    .pCode = (uint32_t *) shadercode,
+    .codeSize = sizeof(shadercode),
+    .pNext = NULL
+  }, NULL, &shadermodule);
+
+  VkDescriptorSetLayout imagedescriptorset;
+  vkCreateDescriptorSetLayout(device.device, &(VkDescriptorSetLayoutCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT,
+    .bindingCount = 1,
+    .pBindings = &(VkDescriptorSetLayoutBinding) {
+      .binding = 0,
+      .descriptorCount = 1,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+      .pImmutableSamplers = 0
+    }
+  }, NULL, &imagedescriptorset);
+
+  VkPipelineLayout computelayout;
+  vkCreatePipelineLayout(device.device, &(VkPipelineLayoutCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    .flags = 0,
+    .setLayoutCount = 1,
+    .pSetLayouts = (VkDescriptorSetLayout[]) {
+      imagedescriptorset
+    },
+    .pushConstantRangeCount = 1,
+    .pPushConstantRanges = (VkPushConstantRange[]) {
+      {.offset = 0,.size = 8,.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
+    },
+  }, NULL, &computelayout);
+
+  VkPipeline computepipeline;
+  vkCreateComputePipelines(device.device, NULL, 1, &(VkComputePipelineCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+    .pNext = NULL,
+    .flags = 0,
+    .stage = (VkPipelineShaderStageCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .pNext = NULL,
+      .flags = 0,
+      .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+      .module = shadermodule,
+      .pName = "main",
+      .pSpecializationInfo = NULL,
+    },
+    .layout = computelayout,
+    .basePipelineHandle = NULL,
+    .basePipelineIndex = 0
+  }, NULL, &computepipeline);
+
+  VkCommandPool commandpool;
+  vkCreateCommandPool(device.device, &(VkCommandPoolCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    .queueFamilyIndex = 0
+  }, NULL, &commandpool);
+
+  VkCommandBuffer commandbuffers[swapchainimagecount];
+  vkAllocateCommandBuffers(device.device, &(VkCommandBufferAllocateInfo) {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .commandPool = commandpool,
+    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandBufferCount = swapchainimagecount,
+  }, commandbuffers);
+
+  uint32_t frameindex = 0;
+
+  while (*active) {
+    if (framefenceactivated[frameindex]) {
+      vkWaitForFences(device.device, 1, &framefinishrenderfence[frameindex], 1, UINT64_MAX);
+      vkResetFences(device.device, 1, &framefinishrenderfence[frameindex]);
+      framefenceactivated[frameindex] = 0;
+    }
+
+    uint32_t imageindex;
+    err = vkAcquireNextImageKHR(device.device, swapchain, UINT64_MAX, frameimagereadysemaphore[frameindex], 0, &imageindex);
+    if (err == VK_ERROR_OUT_OF_DATE_KHR)
+      break; // Exit the loop and remake everything
+
+    VkCommandBuffer commandbuffer = commandbuffers[imageindex];
+
+    vkResetCommandBuffer(commandbuffer, 0);
+    vkBeginCommandBuffer(commandbuffer, &(VkCommandBufferBeginInfo) {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .pInheritanceInfo = NULL,
+      .flags = 0
+    });
+
+    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &(VkImageMemoryBarrier) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .image = swapchainimages[imageindex],
+      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .dstAccessMask = 0,
+      .dstQueueFamilyIndex = 0,
+      .srcAccessMask = 0,
+      .srcQueueFamilyIndex = 0,
+      .subresourceRange = (VkImageSubresourceRange) {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseArrayLayer = 0,
+        .baseMipLevel = 0,
+        .layerCount = 1,
+        .levelCount = 1
+      },
+    });
+
+    vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computepipeline);
+    vkCmdPushDescriptorSet(commandbuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computelayout, 0, 1, &(VkWriteDescriptorSet) {
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .descriptorCount = 1,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+      .dstArrayElement = 0,
+      .dstBinding = 0,
+      .dstSet = 0,
+      .pBufferInfo = NULL,
+      .pImageInfo = &(VkDescriptorImageInfo) {
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .imageView = swapchainimageviews[imageindex],
+        .sampler = NULL,
+      },
+      .pTexelBufferView = 0
+    });
+    uint32_t imagesize[2] = {surfacecapabilities.currentExtent.width, surfacecapabilities.currentExtent.height};
+    vkCmdPushConstants(commandbuffer, computelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 8, imagesize);
+
+    vkCmdDispatch(commandbuffer, surfacecapabilities.currentExtent.width, surfacecapabilities.currentExtent.height, 1);
+
+    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &(VkImageMemoryBarrier) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .image = swapchainimages[imageindex],
+      .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      .dstAccessMask = 0,
+      .dstQueueFamilyIndex = 0,
+      .srcAccessMask = 0,
+      .srcQueueFamilyIndex = 0,
+      .subresourceRange = (VkImageSubresourceRange) {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseArrayLayer = 0,
+        .baseMipLevel = 0,
+        .layerCount = 1,
+        .levelCount = 1
+      },
+    });
+
+    vkEndCommandBuffer(commandbuffer);
+
+    vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &commandbuffer,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &frameimagereadysemaphore[frameindex],
+      .signalSemaphoreCount = 1,
+      .pSignalSemaphores = &framefinishrendersemaphore[frameindex],
+      .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT},
+    }, framefinishrenderfence[frameindex]);
+    framefenceactivated[frameindex] = 1;
+
+    err = vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
+      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .swapchainCount = 1,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &framefinishrendersemaphore[frameindex],
+      .pImageIndices = &imageindex,
+      .pSwapchains = &swapchain,
+    });
+    if (err == VK_SUBOPTIMAL_KHR || err == VK_ERROR_OUT_OF_DATE_KHR) break;
+
+    frameindex++;
+    frameindex %= swapchainimagecount;
+  }
+
+  vkDeviceWaitIdle(device.device);
+
   vkDestroySwapchainKHR(device.device, swapchain, NULL);
 }
 

@@ -83,12 +83,17 @@ struct selectdeviceret selectdevice(VkInstance instance) {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
   };
 
+  VkPhysicalDeviceVulkan14Features vulkan14features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
+    .pushDescriptor = 1
+  };
+
   VkDeviceCreateInfo createinfo = {
     .enabledExtensionCount = extensions,
     .enabledLayerCount = 0,
     .flags = 0,
-    .pEnabledFeatures = 0,
-    .pNext = NULL,
+    .pEnabledFeatures = NULL,
+    .pNext = &vulkan14features,
     .ppEnabledExtensionNames = extensionsstr,
     .ppEnabledLayerNames = 0,
     .pQueueCreateInfos = &queuecreateinfo,

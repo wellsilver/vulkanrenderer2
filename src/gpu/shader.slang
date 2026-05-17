@@ -1,17 +1,6 @@
-struct input_t {
+WTexture2D<float4> image;
 
-};
-
-struct output_t {
-
-};
-
-[shader("vertex")]
-output_t vertexsmasher(input_t input) {
-  return {};
-}
-
-[shader("fragment")]
-float4 fragger(output_t vertIn) : SV_TARGET {
-  return 0;
+[shader("compute")]
+void maincompute(uint3 threadid: SV_DispatchThreadID, uniform uint2 imagesize) {
+  image.Store(threadid.xy, float4(((float) threadid.x) / imagesize.x, 0, 0, 1));
 }
