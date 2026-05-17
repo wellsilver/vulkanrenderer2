@@ -9,11 +9,12 @@ int main(int argc, char **argv) {
 
   int active = 1; // Master active value, when this is 0 the program is shutting down.
 
-  SDL_Window *window = SDL_CreateWindow("Space game", 720, 720, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  SDL_Window *window = SDL_CreateWindow("RTX Terrain Explore", 480, 480, SDL_WINDOW_VULKAN);
   if (window == NULL) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
   }
+  SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
   
   struct gpu_threadarguments gpudata;
   gpudata.window = window;

@@ -49,9 +49,12 @@ struct graphicSettings {
 /*
 
 */
-void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, struct graphicSettings *settings) {
+void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, uint64_t *frametime, struct graphicSettings *settings) {
   VkResult err;
   
+  VkPhysicalDeviceProperties deviceproperties;
+  vkGetPhysicalDeviceProperties(device.physicaldevice, &deviceproperties);
+
   // This is assuming the first format is the best format (which it is on every tested implementation)
   VkSurfaceFormatKHR surfaceformat;
   vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicaldevice, windowsurface, &(uint32_t) {1}, &surfaceformat);
@@ -82,7 +85,6 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
   vkGetSwapchainImagesKHR(device.device, swapchain, &swapchainimagecount, NULL);
   VkImage swapchainimages[swapchainimagecount];
   VkImageView swapchainimageviews[swapchainimagecount];
-  VkSampler swapchainsamplers[swapchainimagecount];
   VkSemaphore framefinishrendersemaphore[swapchainimagecount];
   VkFence framefinishrenderfence[swapchainimagecount];
   VkSemaphore frameimagereadysemaphore[swapchainimagecount];
@@ -107,23 +109,6 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
         .levelCount = 1
       }
     }, NULL, &swapchainimageviews[loop]);
-    vkCreateSampler(device.device, &(VkSamplerCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-      .magFilter = VK_FILTER_LINEAR,
-      .minFilter = VK_FILTER_LINEAR,
-      .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-      .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-      .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-      .anisotropyEnable = 0,
-      .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-      .unnormalizedCoordinates = VK_FALSE,
-      .compareEnable = VK_FALSE,
-      .compareOp = VK_COMPARE_OP_ALWAYS,
-      .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-      .mipLodBias = 0,
-      .minLod = 0,
-      .maxLod = 0,
-    }, NULL, &swapchainsamplers[loop]);
     vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     }, NULL, &framefinishrendersemaphore[loop]);
@@ -207,6 +192,15 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     .commandBufferCount = swapchainimagecount,
   }, commandbuffers);
 
+  VkQueryPool querypool;
+  vkCreateQueryPool(device.device, &(VkQueryPoolCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+    .pipelineStatistics = 0,
+    .flags = 0,
+    .queryCount = 2,
+    .queryType = VK_QUERY_TYPE_TIMESTAMP
+  }, NULL, &querypool);
+
   uint32_t frameindex = 0;
 
   while (*active) {
@@ -214,6 +208,12 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       vkWaitForFences(device.device, 1, &framefinishrenderfence[frameindex], 1, UINT64_MAX);
       vkResetFences(device.device, 1, &framefinishrenderfence[frameindex]);
       framefenceactivated[frameindex] = 0;
+      if (frameindex == 0) { // Tally performance stats
+        uint64_t timestamps[2];
+        vkGetQueryPoolResults(device.device, querypool, 0, 2, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+
+        *frametime = (timestamps[1] - timestamps[0]) * deviceproperties.limits.timestampPeriod;
+      }
     }
 
     uint32_t imageindex;
@@ -229,6 +229,8 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .pInheritanceInfo = NULL,
       .flags = 0
     });
+
+    if (frameindex == 0) vkCmdResetQueryPool(commandbuffer, querypool, 0, 2);
 
     vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -267,7 +269,9 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     uint32_t imagesize[2] = {surfacecapabilities.currentExtent.width, surfacecapabilities.currentExtent.height};
     vkCmdPushConstants(commandbuffer, computelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 8, imagesize);
 
+    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, querypool, 0);
     vkCmdDispatch(commandbuffer, surfacecapabilities.currentExtent.width, surfacecapabilities.currentExtent.height, 1);
+    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, querypool, 1);
 
     vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -317,6 +321,21 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
 
   vkDeviceWaitIdle(device.device);
 
+  // Destroy everything
+
+  vkDestroyShaderModule(device.device, shadermodule, NULL);
+  vkDestroyPipeline(device.device, computepipeline, NULL);
+  vkDestroyDescriptorSetLayout(device.device, imagedescriptorset, NULL);
+  vkDestroyPipelineLayout(device.device, computelayout, NULL);
+  vkFreeCommandBuffers(device.device, commandpool, swapchainimagecount, commandbuffers);
+  vkDestroyCommandPool(device.device, commandpool, NULL);
+  vkDestroyQueryPool(device.device, querypool, NULL);
+  for (unsigned int loop=0;loop<swapchainimagecount;loop++) {
+    vkDestroyImageView(device.device, swapchainimageviews[loop], NULL);
+    vkDestroySemaphore(device.device, framefinishrendersemaphore[loop], NULL);
+    vkDestroyFence(device.device, framefinishrenderfence[loop], NULL);
+    vkDestroySemaphore(device.device, frameimagereadysemaphore[loop], NULL);
+  }
   vkDestroySwapchainKHR(device.device, swapchain, NULL);
 }
 
@@ -343,7 +362,7 @@ int gpu(struct gpu_threadarguments *args) {
   struct graphicSettings settings;
 
   while (*args->active)
-    graphics3D(windowsurface, device, args->active, &settings);
+    graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings);
 
 
   vkDestroyDevice(device.device, NULL);
