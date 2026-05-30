@@ -205,7 +205,8 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
 
   while (*active) {
     if (framefenceactivated[frameindex]) {
-      vkWaitForFences(device.device, 1, &framefinishrenderfence[frameindex], 1, UINT64_MAX);
+      if (vkGetFenceStatus(device.device, framefinishrenderfence[frameindex]) == VK_NOT_READY)
+        vkWaitForFences(device.device, 1, &framefinishrenderfence[frameindex], 1, UINT64_MAX);
       vkResetFences(device.device, 1, &framefinishrenderfence[frameindex]);
       framefenceactivated[frameindex] = 0;
       if (frameindex == 0) { // Tally performance stats
@@ -218,7 +219,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
 
     uint32_t imageindex;
     err = vkAcquireNextImageKHR(device.device, swapchain, UINT64_MAX, frameimagereadysemaphore[frameindex], 0, &imageindex);
-    if (err == VK_ERROR_OUT_OF_DATE_KHR)
+    if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
       break; // Exit the loop and remake everything
 
     VkCommandBuffer commandbuffer = commandbuffers[imageindex];
