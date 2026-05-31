@@ -5,6 +5,7 @@
 #include "common.h"
 #include "device.h"
 #include "gpu.h"
+#include "swapchain.h"
 
 VkInstance makeinstance() {
   VkInstance ret;
@@ -61,65 +62,12 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
   VkSurfaceCapabilitiesKHR surfacecapabilities;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicaldevice, windowsurface, &surfacecapabilities);
 
-  VkSwapchainKHR swapchain;
-  err = vkCreateSwapchainKHR(device.device, &(VkSwapchainCreateInfoKHR) {
-    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-    .clipped = VK_FALSE,
-    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-    .flags = 0,
-    .imageArrayLayers = 1,
-    .imageColorSpace = surfaceformat.colorSpace,
-    .imageExtent = surfacecapabilities.currentExtent,
-    .imageFormat = surfaceformat.format,
-    .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-    .minImageCount = surfacecapabilities.minImageCount,
-    .queueFamilyIndexCount = 1,
-    .pQueueFamilyIndices = &(uint32_t) {0},
-    .presentMode = VK_PRESENT_MODE_FIFO_KHR,
-    .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-    .surface = windowsurface,
-  }, NULL, &swapchain);
-
-  uint32_t swapchainimagecount;
-  vkGetSwapchainImagesKHR(device.device, swapchain, &swapchainimagecount, NULL);
-  VkImage swapchainimages[swapchainimagecount];
-  VkImageView swapchainimageviews[swapchainimagecount];
-  VkSemaphore framefinishrendersemaphore[swapchainimagecount];
-  VkFence framefinishrenderfence[swapchainimagecount];
-  VkSemaphore frameimagereadysemaphore[swapchainimagecount];
-  bool framefenceactivated[swapchainimagecount];
-  //VkSemaphore swapchainrenderfinishsemaphore[swapchainimagecount];
-  vkGetSwapchainImagesKHR(device.device, swapchain, &swapchainimagecount, swapchainimages);
-
-  for (unsigned int loop=0;loop<swapchainimagecount;loop++) {
-    vkCreateImageView(device.device, &(VkImageViewCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-      // .components all is 0, leave it be
-      .viewType = VK_IMAGE_VIEW_TYPE_2D,
-      .components = (VkComponentMapping) {0,0,0,0},
-      .flags = 0,
-      .format = surfaceformat.format,
-      .image = swapchainimages[loop],
-      .subresourceRange = (VkImageSubresourceRange) {
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseArrayLayer = 0,
-        .baseMipLevel = 0,
-        .layerCount = 1,
-        .levelCount = 1
-      }
-    }, NULL, &swapchainimageviews[loop]);
-    vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-    }, NULL, &framefinishrendersemaphore[loop]);
-    vkCreateSemaphore(device.device, &(VkSemaphoreCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-    }, NULL, &frameimagereadysemaphore[loop]);
-    vkCreateFence(device.device, &(VkFenceCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
-    }, NULL, &framefinishrenderfence[loop]);
-    framefenceactivated[loop] = 0;
-  }
+  VkSwapchainKHR swapchain = swapchainCreate(device.device, windowsurface, surfaceformat.colorSpace, surfacecapabilities.currentExtent, surfaceformat.format, surfacecapabilities.minImageCount);
+  if (swapchain == NULL) {SDL_Log("Failed to create swapchain\n"); *active=0; return;}
+  
+  uint32_t swapchainimagecount = swapchainGetImageCount(swapchain, device.device);
+  struct swapchainimage images[swapchainimagecount];
+  swapchainGetImages(device.device, swapchain, swapchainimagecount, images, surfaceformat.format);
 
   VkShaderModule shadermodule;
   vkCreateShaderModule(device.device, &(VkShaderModuleCreateInfo) {
@@ -204,11 +152,11 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
   uint32_t frameindex = 0;
 
   while (*active) {
-    if (framefenceactivated[frameindex]) {
-      if (vkGetFenceStatus(device.device, framefinishrenderfence[frameindex]) == VK_NOT_READY)
-        vkWaitForFences(device.device, 1, &framefinishrenderfence[frameindex], 1, UINT64_MAX);
-      vkResetFences(device.device, 1, &framefinishrenderfence[frameindex]);
-      framefenceactivated[frameindex] = 0;
+    if (images[frameindex].fenceactivated) {
+      if (vkGetFenceStatus(device.device, images[frameindex].framefinishFence) == VK_NOT_READY)
+        vkWaitForFences(device.device, 1, &images[frameindex].framefinishFence, 1, UINT64_MAX);
+      vkResetFences(device.device, 1, &images[frameindex].framefinishFence);
+      images[frameindex].fenceactivated = 0;
       if (frameindex == 0) { // Tally performance stats
         uint64_t timestamps[2];
         vkGetQueryPoolResults(device.device, querypool, 0, 2, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
@@ -218,7 +166,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     }
 
     uint32_t imageindex;
-    err = vkAcquireNextImageKHR(device.device, swapchain, UINT64_MAX, frameimagereadysemaphore[frameindex], 0, &imageindex);
+    err = vkAcquireNextImageKHR(device.device, swapchain, UINT64_MAX, images[frameindex].frameimageready, 0, &imageindex);
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
       break; // Exit the loop and remake everything
 
@@ -235,7 +183,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
 
     vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .image = swapchainimages[imageindex],
+      .image = images[frameindex].image,
       .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       .newLayout = VK_IMAGE_LAYOUT_GENERAL,
       .dstAccessMask = 0,
@@ -262,7 +210,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .pBufferInfo = NULL,
       .pImageInfo = &(VkDescriptorImageInfo) {
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .imageView = swapchainimageviews[imageindex],
+        .imageView = images[frameindex].imageview,
         .sampler = NULL,
       },
       .pTexelBufferView = 0
@@ -276,7 +224,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
 
     vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .image = swapchainimages[imageindex],
+      .image = images[frameindex].image,
       .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
       .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
       .dstAccessMask = 0,
@@ -299,18 +247,18 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .commandBufferCount = 1,
       .pCommandBuffers = &commandbuffer,
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &frameimagereadysemaphore[frameindex],
+      .pWaitSemaphores = &images[frameindex].frameimageready,
       .signalSemaphoreCount = 1,
-      .pSignalSemaphores = &framefinishrendersemaphore[frameindex],
+      .pSignalSemaphores = &images[frameindex].framefinishSem,
       .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT},
-    }, framefinishrenderfence[frameindex]);
-    framefenceactivated[frameindex] = 1;
+    }, images[frameindex].framefinishFence);
+    images[frameindex].fenceactivated = 1;
 
     err = vkQueuePresentKHR(device.queue, &(VkPresentInfoKHR) {
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
       .swapchainCount = 1,
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &framefinishrendersemaphore[frameindex],
+      .pWaitSemaphores = &images[frameindex].framefinishSem,
       .pImageIndices = &imageindex,
       .pSwapchains = &swapchain,
     });
@@ -331,13 +279,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
   vkFreeCommandBuffers(device.device, commandpool, swapchainimagecount, commandbuffers);
   vkDestroyCommandPool(device.device, commandpool, NULL);
   vkDestroyQueryPool(device.device, querypool, NULL);
-  for (unsigned int loop=0;loop<swapchainimagecount;loop++) {
-    vkDestroyImageView(device.device, swapchainimageviews[loop], NULL);
-    vkDestroySemaphore(device.device, framefinishrendersemaphore[loop], NULL);
-    vkDestroyFence(device.device, framefinishrenderfence[loop], NULL);
-    vkDestroySemaphore(device.device, frameimagereadysemaphore[loop], NULL);
-  }
-  vkDestroySwapchainKHR(device.device, swapchain, NULL);
+  swapchainClean(device.device, images, swapchain, swapchainGetImageCount(swapchain, device.device));
 }
 
 /*
