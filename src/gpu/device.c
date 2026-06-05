@@ -83,9 +83,21 @@ struct selectdeviceret selectdevice(VkInstance instance) {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
   };
 
+
   VkPhysicalDeviceVulkan14Features vulkan14features = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
-    .pushDescriptor = 1
+    .pushDescriptor = true,
+    .dynamicRenderingLocalRead = true,
+  };
+  VkPhysicalDeviceVulkan13Features vulkan13features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+    .dynamicRendering = true,
+    .pNext = &vulkan14features
+  };
+  VkPhysicalDeviceVulkan11Features vulkan11features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+    .shaderDrawParameters = 1,
+    .pNext = &vulkan13features
   };
 
   VkDeviceCreateInfo createinfo = {
@@ -93,7 +105,7 @@ struct selectdeviceret selectdevice(VkInstance instance) {
     .enabledLayerCount = 0,
     .flags = 0,
     .pEnabledFeatures = NULL,
-    .pNext = &vulkan14features,
+    .pNext = &vulkan11features,
     .ppEnabledExtensionNames = extensionsstr,
     .ppEnabledLayerNames = 0,
     .pQueueCreateInfos = &queuecreateinfo,

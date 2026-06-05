@@ -9,7 +9,7 @@ out/%.o: src/%.c | out/shaders.spv out
 	gcc $< -o $@ -c
 
 out/shaders.spv: src/gpu/shader.slang | out
-	slangc src/gpu/shader.slang -entry maincompute -profile spirv_1_4 -emit-spirv-directly -o out/shaders.spv
+	slangc src/gpu/shader.slang -entry vertexsmasher -entry fragger -profile spirv_1_4 -emit-spirv-directly -o out/shaders.spv
 
 out:
 	mkdir out
