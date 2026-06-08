@@ -50,7 +50,7 @@ struct graphicSettings {
 /*
 
 */
-void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, uint64_t *frametime, struct graphicSettings *settings) {
+void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, uint64_t *frametime, struct graphicSettings *settings, VkPipelineCache cache) {
   VkResult err;
   
   VkPhysicalDeviceProperties deviceproperties;
@@ -99,11 +99,11 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
   }, NULL, &layout);
 
   VkPipeline graphicspipeline;
-  vkCreateGraphicsPipelines(device.device, NULL, 1, &(VkGraphicsPipelineCreateInfo) {
+  vkCreateGraphicsPipelines(device.device, cache, 1, &(VkGraphicsPipelineCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
     .pNext = &rfInfo,
     .flags = 0,
-    .stageCount = 1,
+    .stageCount = 2,
     .pStages = (VkPipelineShaderStageCreateInfo[]) {
       {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -149,7 +149,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .scissorCount = 1,
       .pScissors = &(VkRect2D) {
         .extent = surfacecapabilities.currentExtent,
-        .offset = (0,0),
+        .offset = {0,0},
       },
       .viewportCount = 1,
       .pViewports = &(VkViewport) {
@@ -167,10 +167,10 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .depthClampEnable = 0,
       .rasterizerDiscardEnable = 0,
       .polygonMode = VK_POLYGON_MODE_FILL,
-      .cullMode = VK_CULL_MODE_BACK_BIT,
+      .cullMode = VK_CULL_MODE_NONE,
       .frontFace = VK_FRONT_FACE_CLOCKWISE,
       .depthBiasEnable = 0,
-      .lineWidth = 1,
+      .lineWidth = 1.0f,
     },
     .pMultisampleState = &(VkPipelineMultisampleStateCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
@@ -178,7 +178,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
       .sampleShadingEnable = 0,
       .minSampleShading = 0,
-      .pSampleMask = &(VkSampleMask) {1}
+      .pSampleMask = NULL
     },
     .pDepthStencilState = &(VkPipelineDepthStencilStateCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
@@ -259,7 +259,7 @@ End
         vkGetQueryPoolResults(device.device, querypool, 0, 4, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 
         *frametime = (timestamps[3] - timestamps[0]) * deviceproperties.limits.timestampPeriod;
-        SDL_Log("%f ms\n", (float) (*frametime)/1000000.0f);
+        //SDL_Log("%f ms\n", (float) (*frametime)/1000000.0f);
       }
     }
 
@@ -291,10 +291,6 @@ End
 
     if (frameindex == 0) {
       vkCmdResetQueryPool(commandbuffer, querypool, 0, 4);
-      vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Now (start of frame)
-      vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, querypool, 1); // End of vertex shader
-      vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, querypool, 2); // End of fragment shader
-      vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, querypool, 3); // End of graphics
     }
 
     vkCmdBeginRendering(commandbuffer, &(VkRenderingInfo) {
@@ -313,7 +309,10 @@ End
 
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
+    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
     vkCmdDraw(commandbuffer, 3, 1, 0, 0);
+    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, querypool, 1); // End of vertex shader
+    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, querypool, 2); // End of fragment shader
 
     vkCmdEndRendering(commandbuffer);
 
@@ -328,6 +327,8 @@ End
       .subresourceRange.baseArrayLayer = 0,
       .subresourceRange.layerCount = 1,
     });
+
+    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, querypool, 3); // End of graphics
 
     vkEndCommandBuffer(commandbuffer);
 
@@ -391,12 +392,19 @@ int gpu(struct gpu_threadarguments *args) {
     return 3;
   }
 
+  VkPipelineCache cache;
+  vkCreatePipelineCache(device.device, &(VkPipelineCacheCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+    .initialDataSize = 0
+  }, NULL, &cache);
+
   struct graphicSettings settings;
 
   while (*args->active)
-    graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings);
+    graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings, cache);
 
 
+  vkDestroyPipelineCache(device.device, cache, NULL);
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);
