@@ -94,11 +94,16 @@ struct selectdeviceret selectdevice(VkInstance instance) {
     .dynamicRendering = true,
     .pNext = &vulkan14features
   };
+  VkPhysicalDeviceVulkan12Features vulkan12features = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+    .pNext = &vulkan13features
+  };
   VkPhysicalDeviceVulkan11Features vulkan11features = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
     .shaderDrawParameters = 1,
-    .pNext = &vulkan13features
+    .pNext = &vulkan12features
   };
+
 
   VkDeviceCreateInfo createinfo = {
     .enabledExtensionCount = extensions,
