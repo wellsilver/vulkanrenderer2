@@ -35,7 +35,7 @@ static inline VkSwapchainKHR swapchainCreate(VkDevice device, VkSurfaceKHR windo
     .minImageCount = minimagecount,
     .queueFamilyIndexCount = 1,
     .pQueueFamilyIndices = &(uint32_t) {0},
-    .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+    .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
     .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
     .surface = windowsurface,
   }, NULL, &swapchain);
