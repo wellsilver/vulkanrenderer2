@@ -50,7 +50,7 @@ struct graphicSettings {
 /*
 
 */
-void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, uint64_t *frametime, struct graphicSettings *settings, VkPipelineCache cache) {
+void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, uint64_t *frametime, struct graphicSettings *settings, VkPipelineCache cache, VkBuffer triangles) {
   VkResult err;
   
   VkPhysicalDeviceProperties deviceproperties;
@@ -124,13 +124,22 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     },
     .pVertexInputState = &(VkPipelineVertexInputStateCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-      .vertexAttributeDescriptionCount = 0,
+      .vertexAttributeDescriptionCount = 1,
       .pVertexAttributeDescriptions = (VkVertexInputAttributeDescription[]) {
-        
+        {
+          .binding = 0,
+          .format = VK_FORMAT_R32G32B32_SFLOAT,
+          .location = 0,
+          .offset = 0
+        }
       },
-      .vertexBindingDescriptionCount = 0,
+      .vertexBindingDescriptionCount = 1,
       .pVertexBindingDescriptions = (VkVertexInputBindingDescription[]) {
-
+        {
+          .binding = 0,
+          .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+          .stride = 0,
+        }
       }
     },
     .pInputAssemblyState = &(VkPipelineInputAssemblyStateCreateInfo) {
@@ -167,7 +176,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .depthClampEnable = 0,
       .rasterizerDiscardEnable = 0,
       .polygonMode = VK_POLYGON_MODE_FILL,
-      .cullMode = VK_CULL_MODE_NONE,
+      .cullMode = VK_CULL_MODE_BACK_BIT,
       .frontFace = VK_FRONT_FACE_CLOCKWISE,
       .depthBiasEnable = 0,
       .lineWidth = 1.0f,
@@ -309,6 +318,7 @@ End
 
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
+    vkCmdBindVertexBuffers(commandbuffer, 0, 1, &triangles, (VkDeviceSize[]) {0});
     if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
     vkCmdDraw(commandbuffer, 3, 1, 0, 0);
     if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, querypool, 1); // End of vertex shader
@@ -398,12 +408,33 @@ int gpu(struct gpu_threadarguments *args) {
     .initialDataSize = 0
   }, NULL, &cache);
 
+  VkBuffer triangles;
+  vkCreateBuffer(device.device, &(VkBufferCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .queueFamilyIndexCount = 1,
+    .pQueueFamilyIndices = &{0},
+    .flags = 0,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .size = (4*3)*3, // 3 3D vertices
+    .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+  }, NULL, &triangles);
+  VkMemoryRequirements requirements;
+  vkGetBufferMemoryRequirements(device.device, triangles, &requirements);
+  VkDeviceMemory memory;
+  vkAllocateMemory(device.device, &(VkMemoryAllocateInfo) {
+    .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+    .memoryTypeIndex = 0,
+    .allocationSize = requirements.size,
+  }, NULL, &memory);
+  vkBindBufferMemory(device.device, triangles, memory, 0);
+
   struct graphicSettings settings;
 
   while (*args->active)
-    graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings, cache);
+    graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings, cache, triangles);
 
-
+  vkFreeMemory(device.device, memory, NULL);
+  vkDestroyBuffer(device.device, triangles, NULL);
   vkDestroyPipelineCache(device.device, cache, NULL);
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);

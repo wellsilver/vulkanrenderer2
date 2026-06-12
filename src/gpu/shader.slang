@@ -1,6 +1,6 @@
 struct input_t {
   [[vk::location(0)]] float3 pos;
-  [[vk::location(1)]] float3 color;
+  //[[vk::location(1)]] float3 color;
 };
 
 struct output_t {
@@ -9,7 +9,7 @@ struct output_t {
 };
 
 [shader("vertex")]
-output_t vertexsmasher(uint id : SV_VertexID) {
+output_t vertexsmasher(input_t in, uint id : SV_VertexID) {
   output_t output;
   switch (id) {
     case 0:
