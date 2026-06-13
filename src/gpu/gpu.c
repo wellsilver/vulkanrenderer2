@@ -138,7 +138,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
         {
           .binding = 0,
           .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-          .stride = 0,
+          .stride = sizeof(struct vertice),
         }
       }
     },
@@ -412,7 +412,7 @@ int gpu(struct gpu_threadarguments *args) {
   vkCreateBuffer(device.device, &(VkBufferCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .queueFamilyIndexCount = 1,
-    .pQueueFamilyIndices = &{0},
+    .pQueueFamilyIndices = (uint32_t[]) {0},
     .flags = 0,
     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     .size = (4*3)*3, // 3 3D vertices
@@ -423,10 +423,17 @@ int gpu(struct gpu_threadarguments *args) {
   VkDeviceMemory memory;
   vkAllocateMemory(device.device, &(VkMemoryAllocateInfo) {
     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    .memoryTypeIndex = 0,
+    .memoryTypeIndex = 3,
     .allocationSize = requirements.size,
   }, NULL, &memory);
   vkBindBufferMemory(device.device, triangles, memory, 0);
+
+  struct vertice *data;
+  vkMapMemory(device.device, memory, 0, (4*3)*3, 0, (void **) &data);
+  data[0] = (struct vertice) {0, -1, 0};
+  data[1] = (struct vertice) {1, 1, 0};
+  data[2] = (struct vertice) {-1, 1, 0};
+  vkUnmapMemory(device.device, memory);
 
   struct graphicSettings settings;
 

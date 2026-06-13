@@ -9,19 +9,17 @@ struct output_t {
 };
 
 [shader("vertex")]
-output_t vertexsmasher(input_t in, uint id : SV_VertexID) {
+output_t vertexsmasher(input_t inv, uint id : SV_VertexID) {
   output_t output;
+  output.pos = float4(inv.pos, 1);
   switch (id) {
     case 0:
-      output.pos = float4(0, -1, 0, 1);
       output.color = float3(1, 0, 0);
     break;
     case 1:
-      output.pos = float4(1, 1, 0, 1);
       output.color = float3(0, 1, 0);
     break;
     case 2:
-      output.pos = float4(-1, 1, 0, 1);
       output.color = float3(0, 0, 1);
     break;
   }
