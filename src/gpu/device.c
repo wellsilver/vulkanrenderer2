@@ -2,6 +2,8 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
+#include <vk_mem_alloc.h>
+
 #include "device.h"
 
 struct idealdeviceRet {
@@ -128,6 +130,20 @@ struct selectdeviceret selectdevice(VkInstance instance) {
   }
   
   vkGetDeviceQueue(ret.device, device.pick_queueindex, 0, &ret.queue);
+
+  VmaVulkanFunctions vulkanFunctions = {};
+  vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+  vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+  
+  VmaAllocatorCreateInfo allocatorCreateInfo = {};
+  allocatorCreateInfo.flags = 0;
+  allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_4;
+  allocatorCreateInfo.physicalDevice = device.pick;
+  allocatorCreateInfo.device = ret.device;
+  allocatorCreateInfo.instance = instance;
+  allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+  
+  vmaCreateAllocator(&allocatorCreateInfo, &ret.allocator);
 
   return ret;
 }

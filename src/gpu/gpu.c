@@ -2,6 +2,9 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
+#define VMA_VULKAN_VERSION 1004000 // Vulkan 1.4
+#include <vk_mem_alloc.h>
+
 #include "common.h"
 #include "device.h"
 #include "gpu.h"
@@ -286,7 +289,7 @@ End
       .flags = 0
     });
 
-    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
+    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
       .image = images[frameindex].image,
       .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -326,7 +329,7 @@ End
 
     vkCmdEndRendering(commandbuffer);
 
-    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
+    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
       .image = images[frameindex].image,
       .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -408,8 +411,9 @@ int gpu(struct gpu_threadarguments *args) {
     .initialDataSize = 0
   }, NULL, &cache);
 
+  VmaAllocation trianglesallocation;
   VkBuffer triangles;
-  vkCreateBuffer(device.device, &(VkBufferCreateInfo) {
+  vmaCreateBuffer(device.allocator, &(VkBufferCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .queueFamilyIndexCount = 1,
     .pQueueFamilyIndices = (uint32_t[]) {0},
@@ -417,31 +421,25 @@ int gpu(struct gpu_threadarguments *args) {
     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     .size = (4*3)*3, // 3 3D vertices
     .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-  }, NULL, &triangles);
-  VkMemoryRequirements requirements;
-  vkGetBufferMemoryRequirements(device.device, triangles, &requirements);
-  VkDeviceMemory memory;
-  vkAllocateMemory(device.device, &(VkMemoryAllocateInfo) {
-    .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    .memoryTypeIndex = 3,
-    .allocationSize = requirements.size,
-  }, NULL, &memory);
-  vkBindBufferMemory(device.device, triangles, memory, 0);
-
+  }, &(VmaAllocationCreateInfo) {
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+  }, &triangles, &trianglesallocation, NULL);
+  
   struct vertice *data;
-  vkMapMemory(device.device, memory, 0, (4*3)*3, 0, (void **) &data);
+  vmaMapMemory(device.allocator, trianglesallocation, (void **) &data);
   data[0] = (struct vertice) {0, -1, 0};
   data[1] = (struct vertice) {1, 1, 0};
   data[2] = (struct vertice) {-1, 1, 0};
-  vkUnmapMemory(device.device, memory);
+  vmaUnmapMemory(device.allocator, trianglesallocation);
 
   struct graphicSettings settings;
 
   while (*args->active)
     graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings, cache, triangles);
 
-  vkFreeMemory(device.device, memory, NULL);
-  vkDestroyBuffer(device.device, triangles, NULL);
+  vmaDestroyBuffer(device.allocator, triangles, trianglesallocation);
+  vmaDestroyAllocator(device.allocator);
   vkDestroyPipelineCache(device.device, cache, NULL);
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
