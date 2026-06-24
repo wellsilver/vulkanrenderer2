@@ -311,11 +311,13 @@ End
       .layerCount=1,
       .colorAttachmentCount=1,
       .pColorAttachments=&(VkRenderingAttachmentInfo) {.sType=VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-      .imageView = images[frameindex].imageview,
-      .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .resolveMode = VK_RESOLVE_MODE_NONE,
-      .resolveImageView = images[frameindex].imageview,
-      .resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        .imageView = images[frameindex].imageview,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .resolveMode = VK_RESOLVE_MODE_NONE,
+        .resolveImageView = images[frameindex].imageview,
+        .resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_NONE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE
     },
     });
 
@@ -422,16 +424,17 @@ int gpu(struct gpu_threadarguments *args) {
     .size = (4*3)*3, // 3 3D vertices
     .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
   }, &(VmaAllocationCreateInfo) {
-    .usage = VMA_MEMORY_USAGE_AUTO,
+    .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
     .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
   }, &triangles, &trianglesallocation, NULL);
-  
-  struct vertice *data;
-  vmaMapMemory(device.allocator, trianglesallocation, (void **) &data);
-  data[0] = (struct vertice) {0, -1, 0};
-  data[1] = (struct vertice) {1, 1, 0};
-  data[2] = (struct vertice) {-1, 1, 0};
-  vmaUnmapMemory(device.allocator, trianglesallocation);
+
+  struct vertice vertices[3] = {
+    {0, 1, 0},
+    {-1, -1, 0},
+    {1, -1, 0}
+  };
+
+  vmaCopyMemoryToAllocation(device.allocator, vertices, trianglesallocation, 0, sizeof(vertices));
 
   struct graphicSettings settings;
 
