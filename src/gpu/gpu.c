@@ -95,8 +95,8 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pNext = 0,
     .flags = 0,
-    .pushConstantRangeCount = 0,
-    .pPushConstantRanges = NULL,
+    .pushConstantRangeCount = 1,
+    .pPushConstantRanges = &(VkPushConstantRange) {.offset = 0,.size = sizeof(struct camera),.stageFlags = VK_SHADER_STAGE_VERTEX_BIT},
     .setLayoutCount = 0,
     .pSetLayouts = NULL,
   }, NULL, &layout);
@@ -258,6 +258,8 @@ End
     .queryType = VK_QUERY_TYPE_TIMESTAMP
   }, NULL, &querypool);
 
+  struct camera camMatrices;
+
   uint32_t frameindex = 0;
 
   while (*active) {
@@ -323,6 +325,7 @@ End
 
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
+    vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
     vkCmdBindVertexBuffers(commandbuffer, 0, 1, &triangles, (VkDeviceSize[]) {0});
     if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
     vkCmdDraw(commandbuffer, 3, 1, 0, 0);

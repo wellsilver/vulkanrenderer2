@@ -4,30 +4,25 @@ struct input_t {
 };
 
 struct output_t {
-  float4 pos : SV_Position;
-  float3 color;
+  mediump float4 pos : SV_Position;
+  mediump float3 color;
 };
+
+struct vertexpushconstants {
+  float4x4 proj;
+  float4x4 view;
+  float4x4 model;
+};
+[[vk::push_constant]] vertexpushconstants cameramatrices;
 
 [shader("vertex")]
 output_t vertexsmasher(input_t inv, uint id : SV_VertexID) {
   output_t output;
-  output.pos = float4(inv.pos, 1);
-  switch (id) {
-    case 0:
-      output.color = float3(1, 0, 0);
-    break;
-    case 1:
-      output.color = float3(0, 1, 0);
-    break;
-    case 2:
-      output.color = float3(0, 0, 1);
-    break;
-  }
+  output.pos = mul(cameramatrices.view, float4(inv.pos, 1));
   return output;
 }
 
 [shader("fragment")]
-float4 fragger(output_t vertIn) : SV_TARGET {
-  
+mediump float4 fragger(output_t vertIn) : SV_TARGET {
   return float4(vertIn.color, 1.0);
 }
