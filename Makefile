@@ -12,7 +12,7 @@ out/%.cpp.o: src/%.cpp | out/shaders.spv out
 	@mkdir -p $(dir $@)
 	g++ $< -o $@ -c
 
-vma.o: vma.cpp
+vma.so: vma.cpp
 	g++ vma.cpp -o vma.so -l vulkan -shared -fPIE -fPIC
 
 out/shaders.spv: src/gpu/shader.slang | out
