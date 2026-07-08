@@ -3,6 +3,7 @@ objects := $(patsubst src/%,out/%,$(addsuffix .o, $(sources)))
 
 out/game: $(objects) vma.so | out/shaders.spv out
 	gcc $^ -o out/game vma.so -l SDL3 -l vulkan
+	cp vma.so out
 
 out/%.c.o: src/%.c | out/shaders.spv out
 	@mkdir -p $(dir $@)
