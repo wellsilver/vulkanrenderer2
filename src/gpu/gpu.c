@@ -95,8 +95,8 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pNext = 0,
     .flags = 0,
-    .pushConstantRangeCount = 1,
-    .pPushConstantRanges = &(VkPushConstantRange) {.offset = 0,.size = sizeof(struct camera),.stageFlags = VK_SHADER_STAGE_VERTEX_BIT},
+    .pushConstantRangeCount = 0,
+    .pPushConstantRanges = NULL,
     .setLayoutCount = 0,
     .pSetLayouts = NULL,
   }, NULL, &layout);
@@ -249,6 +249,27 @@ Fragment
 End
 */
 
+  VkImage zbuffer;
+  VmaAllocation zbufferallocation;
+  vmaCreateImage(device.allocator, &(VkImageCreateInfo) {
+    .arrayLayers = 1,
+    .extent = (VkExtent3D) {.depth = 1,.width=surfacecapabilities.currentExtent.width,.height= surfacecapabilities.currentExtent.height},
+    .flags = 0,
+    .format = VK_FORMAT_D32_SFLOAT,
+    .imageType = VK_IMAGE_TYPE_2D,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .mipLevels = 1,
+    .pQueueFamilyIndices = &(uint32_t) {0},
+    .queueFamilyIndexCount = 1,
+    .samples = 1,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+    .tiling = VK_IMAGE_TILING_OPTIMAL,
+    .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+  }, &(VmaAllocationCreateInfo) {
+    .flags = VMA_MEMORY_USAGE_GPU_ONLY
+  }, &zbuffer, &zbufferallocation, NULL);
+
   VkQueryPool querypool;
   vkCreateQueryPool(device.device, &(VkQueryPoolCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
@@ -334,7 +355,7 @@ End
 
     vkCmdEndRendering(commandbuffer);
 
-    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
+    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
       .image = images[frameindex].image,
       .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -380,6 +401,7 @@ End
 
   // Destroy everything
 
+  vmaDestroyImage(device.allocator, zbuffer, zbufferallocation);
   vkDestroyShaderModule(device.device, shadermodule, NULL);
   vkDestroyPipeline(device.device, graphicspipeline, NULL);
   //vkDestroyDescriptorSetLayout(device.device, imagedescriptorset, NULL);
