@@ -86,8 +86,8 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     .pNext = NULL,
     .colorAttachmentCount = 1,
     .pColorAttachmentFormats = &surfaceformat.format,
-    .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT,
-    .stencilAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT
+    .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT,
+    .stencilAttachmentFormat = VK_FORMAT_UNDEFINED
   };
 
   VkPipelineLayout layout;
@@ -95,8 +95,12 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pNext = 0,
     .flags = 0,
-    .pushConstantRangeCount = 0,
-    .pPushConstantRanges = NULL,
+    .pushConstantRangeCount = 1,
+    .pPushConstantRanges = &(VkPushConstantRange) {
+      .offset = 0,
+      .size = sizeof(struct camera),
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+    },
     .setLayoutCount = 0,
     .pSetLayouts = NULL,
   }, NULL, &layout);
@@ -196,9 +200,9 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
       .pNext = NULL,
       .flags = 0,
-      .depthTestEnable = 0,
-      .depthWriteEnable = 0,
-      .depthCompareOp = 0,
+      .depthTestEnable = 1,
+      .depthWriteEnable = 1,
+      .depthCompareOp = VK_COMPARE_OP_LESS,
       .depthBoundsTestEnable = 0,
       .stencilTestEnable = 0,
     },
@@ -250,6 +254,7 @@ End
 */
 
   VkImage zbuffer;
+  VkImageView zbufferview;
   VmaAllocation zbufferallocation;
   vmaCreateImage(device.allocator, &(VkImageCreateInfo) {
     .arrayLayers = 1,
@@ -269,6 +274,22 @@ End
   }, &(VmaAllocationCreateInfo) {
     .flags = VMA_MEMORY_USAGE_GPU_ONLY
   }, &zbuffer, &zbufferallocation, NULL);
+  vkCreateImageView(device.device, &(VkImageViewCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    .pNext = NULL,
+    .flags = 0,
+    .image = zbuffer,
+    .viewType = VK_IMAGE_VIEW_TYPE_2D,
+    .format = VK_FORMAT_D32_SFLOAT,
+    .components = (VkComponentMapping) {0,0,0,0},
+    .subresourceRange = (VkImageSubresourceRange) {
+      .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+      .baseArrayLayer = 0,
+      .baseMipLevel = 0,
+      .layerCount = 1,
+      .levelCount = 1
+    }
+  }, NULL, &zbufferview);
 
   VkQueryPool querypool;
   vkCreateQueryPool(device.device, &(VkQueryPoolCreateInfo) {
@@ -324,6 +345,18 @@ End
       .subresourceRange.layerCount = 1,
     });
 
+    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .image = zbuffer,
+      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+      .subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+      .subresourceRange.baseMipLevel = 0,
+      .subresourceRange.levelCount = 1,
+      .subresourceRange.baseArrayLayer = 0,
+      .subresourceRange.layerCount = 1,
+    });
+
     if (frameindex == 0) {
       vkCmdResetQueryPool(commandbuffer, querypool, 0, 4);
     }
@@ -341,7 +374,17 @@ End
         .resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_NONE,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE
-    },
+      },
+      .pDepthAttachment = &(VkRenderingAttachmentInfo) {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = zbufferview,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .resolveMode = VK_RESOLVE_MODE_NONE,
+        .resolveImageView = zbufferview,
+        .resolveImageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_NONE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+      }
     });
 
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
@@ -401,6 +444,7 @@ End
 
   // Destroy everything
 
+  vkDestroyImageView(device.device, zbufferview, NULL);
   vmaDestroyImage(device.allocator, zbuffer, zbufferallocation);
   vkDestroyShaderModule(device.device, shadermodule, NULL);
   vkDestroyPipeline(device.device, graphicspipeline, NULL);
