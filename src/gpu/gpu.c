@@ -202,7 +202,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .flags = 0,
       .depthTestEnable = 1,
       .depthWriteEnable = 1,
-      .depthCompareOp = VK_COMPARE_OP_LESS,
+      .depthCompareOp = VK_COMPARE_OP_EQUAL,
       .depthBoundsTestEnable = 0,
       .stencilTestEnable = 0,
     },
