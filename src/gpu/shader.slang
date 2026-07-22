@@ -5,7 +5,7 @@ struct input_t {
 
 struct output_t {
   mediump float4 pos : SV_Position;
-  mediump float3 color;
+  mediump float4 color;
 };
 
 struct vertexpushconstants {
@@ -19,10 +19,11 @@ struct vertexpushconstants {
 output_t vertexsmasher(input_t inv, uint id : SV_VertexID) {
   output_t output;
   output.pos = mul(cameramatrices.view, float4(inv.pos, 1));
+  output.color = float4(1.0f, 1.0f, 1.0f, 1.0f);
   return output;
 }
 
 [shader("fragment")]
 mediump float4 fragger(output_t vertIn) : SV_TARGET {
-  return float4(vertIn.color, 1.0);
+  return float4(vertIn.color);
 }
