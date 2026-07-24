@@ -18,7 +18,7 @@ struct vertexpushconstants {
 [shader("vertex")]
 output_t vertexsmasher(input_t inv, uint id : SV_VertexID) {
   output_t output;
-  output.pos = mul(cameramatrices.view, float4(inv.pos, 1));
+  output.pos = mul(cameramatrices.proj, mul(cameramatrices.view, float4(inv.pos, 1)));
   output.color = float4(1.0f, 1.0f, 1.0f, 1.0f);
   return output;
 }

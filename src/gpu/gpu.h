@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <cglm/cglm.h>
 
 struct gpu_threadarguments {
   SDL_Window *window;
@@ -11,9 +12,9 @@ struct vertice {
 };
 
 struct camera {
-  float proj[4*4];
-  float view[4*4];
-  float model[4*4];
+  mat4 proj;
+  mat4 view;
+  mat4 model;
 };
 
 int gpu(struct gpu_threadarguments *);

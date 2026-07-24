@@ -2,7 +2,7 @@ sources := $(shell find src -name "*.cpp") $(shell find src -name "*.c")
 objects := $(patsubst src/%,out/%,$(addsuffix .o, $(sources)))
 
 out/game: $(objects) vma.so | out/shaders.spv out
-	gcc $^ -o out/game vma.so -l SDL3 -l vulkan
+	gcc $^ -o out/game vma.so -l SDL3 -l vulkan -lcglm -lm
 	cp vma.so out
 
 out/%.c.o: src/%.c | out/shaders.spv out

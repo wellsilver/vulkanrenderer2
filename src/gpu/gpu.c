@@ -1,6 +1,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#include <cglm/cglm.h>
+#include <cglm/cam.h>
+#include <cglm/clipspace/persp_rh_zo.h>
+#include <cglm/clipspace/view_rh_zo.h>
 
 #define VMA_VULKAN_VERSION 1004000 // Vulkan 1.4
 #include <vk_mem_alloc.h>
@@ -183,7 +187,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .depthClampEnable = 0,
       .rasterizerDiscardEnable = 0,
       .polygonMode = VK_POLYGON_MODE_FILL,
-      .cullMode = VK_CULL_MODE_BACK_BIT,
+      .cullMode = VK_CULL_MODE_NONE,
       .frontFace = VK_FRONT_FACE_CLOCKWISE,
       .depthBiasEnable = 0,
       .lineWidth = 1.0f,
@@ -202,7 +206,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .flags = 0,
       .depthTestEnable = 1,
       .depthWriteEnable = 1,
-      .depthCompareOp = VK_COMPARE_OP_EQUAL,
+      .depthCompareOp = VK_COMPARE_OP_GREATER,
       .depthBoundsTestEnable = 0,
       .stencilTestEnable = 0,
     },
@@ -302,6 +306,21 @@ End
 
   struct camera camMatrices;
 
+/*
+ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+ubo.proj[1][1] *= -1;
+*/
+
+  vec3 position = {2, 2, 2};
+  vec3 front = {0, 0, 0};
+  vec3 positionplusfront;
+  vec3 up = {0, 1, 0};
+  //glm_vec3_add(position, front, positionplusfront);
+  glm_lookat_rh_zo(position, front, up, camMatrices.view);
+  glm_perspective_rh_zo(glm_rad(45.0f), (float)surfacecapabilities.currentExtent.width / (float) surfacecapabilities.currentExtent.height, 0.1f, 100.0f, camMatrices.proj);
+  camMatrices.proj[1][1] *= -1.0f;
+  
   uint32_t frameindex = 0;
 
   while (*active) {
@@ -383,10 +402,12 @@ End
         .resolveImageView = zbufferview,
         .resolveImageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_NONE,
+        .clearValue = 0,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
       }
     });
 
+    
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
     vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
