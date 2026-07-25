@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#define CGLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <cglm/cglm.h>
 #include <cglm/cam.h>
 #include <cglm/clipspace/persp_rh_zo.h>
@@ -206,7 +207,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *
       .flags = 0,
       .depthTestEnable = 1,
       .depthWriteEnable = 1,
-      .depthCompareOp = VK_COMPARE_OP_GREATER,
+      .depthCompareOp = VK_COMPARE_OP_LESS,
       .depthBoundsTestEnable = 0,
       .stencilTestEnable = 0,
     },
@@ -322,6 +323,7 @@ ubo.proj[1][1] *= -1;
   camMatrices.proj[1][1] *= -1.0f;
   
   uint32_t frameindex = 0;
+  bool performancecounter = 0;
 
   while (*active) {
     if (images[frameindex].fenceactivated) {
@@ -329,7 +331,7 @@ ubo.proj[1][1] *= -1;
         vkWaitForFences(device.device, 1, &images[frameindex].framefinishFence, 1, UINT64_MAX);
       vkResetFences(device.device, 1, &images[frameindex].framefinishFence);
       images[frameindex].fenceactivated = 0;
-      if (frameindex == 0) { // Tally performance stats
+      if (performancecounter) { // Tally performance stats
         uint64_t timestamps[4];
         vkGetQueryPoolResults(device.device, querypool, 0, 4, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 
@@ -352,31 +354,45 @@ ubo.proj[1][1] *= -1;
       .flags = 0
     });
 
-    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .image = images[frameindex].image,
-      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-      .subresourceRange.baseMipLevel = 0,
-      .subresourceRange.levelCount = 1,
-      .subresourceRange.baseArrayLayer = 0,
-      .subresourceRange.layerCount = 1,
+    // The NVIDIA performance guide says to use synchronization2, and to do it in one command.
+    vkCmdPipelineBarrier2(commandbuffer, &(VkDependencyInfo) {
+      .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+      .imageMemoryBarrierCount = 2,
+      .pImageMemoryBarriers = (VkImageMemoryBarrier2[2]) {
+        { // Color image
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .image = images[frameindex].image,
+          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+          .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .srcAccessMask = VK_ACCESS_2_NONE,
+          .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+          .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+          .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+          .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+          .subresourceRange.baseMipLevel = 0,
+          .subresourceRange.levelCount = 1,
+          .subresourceRange.baseArrayLayer = 0,
+          .subresourceRange.layerCount = 1,
+        },
+        { // Depth buffer
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .image = zbuffer,
+          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+          .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+          .srcAccessMask = VK_ACCESS_2_NONE,
+          .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+          .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+          .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+          .subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+          .subresourceRange.baseMipLevel = 0,
+          .subresourceRange.levelCount = 1,
+          .subresourceRange.baseArrayLayer = 0,
+          .subresourceRange.layerCount = 1,
+        }
+      }
     });
 
-    vkCmdPipelineBarrier(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, 0, 0, 0, 1, &(VkImageMemoryBarrier) {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .image = zbuffer,
-      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-      .subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-      .subresourceRange.baseMipLevel = 0,
-      .subresourceRange.levelCount = 1,
-      .subresourceRange.baseArrayLayer = 0,
-      .subresourceRange.layerCount = 1,
-    });
-
-    if (frameindex == 0) {
+    if (performancecounter) {
       vkCmdResetQueryPool(commandbuffer, querypool, 0, 4);
     }
 
@@ -401,21 +417,20 @@ ubo.proj[1][1] *= -1;
         .resolveMode = VK_RESOLVE_MODE_NONE,
         .resolveImageView = zbufferview,
         .resolveImageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_NONE,
-        .clearValue = 0,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .clearValue = 100,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
       }
     });
-
     
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
     vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
     vkCmdBindVertexBuffers(commandbuffer, 0, 1, &triangles, (VkDeviceSize[]) {0});
-    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
-    vkCmdDraw(commandbuffer, 3, 1, 0, 0);
-    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, querypool, 1); // End of vertex shader
-    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, querypool, 2); // End of fragment shader
+    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
+    vkCmdDraw(commandbuffer, 6, 1, 0, 0);
+    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, querypool, 1); // End of vertex shader
+    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, querypool, 2); // End of fragment shader
 
     vkCmdEndRendering(commandbuffer);
 
@@ -431,7 +446,7 @@ ubo.proj[1][1] *= -1;
       .subresourceRange.layerCount = 1,
     });
 
-    if (frameindex==0) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, querypool, 3); // End of graphics
+    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, querypool, 3); // End of graphics
 
     vkEndCommandBuffer(commandbuffer);
 
@@ -511,17 +526,20 @@ int gpu(struct gpu_threadarguments *args) {
     .pQueueFamilyIndices = (uint32_t[]) {0},
     .flags = 0,
     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    .size = (4*3)*3, // 3 3D vertices
+    .size = (4*3)*6, // 3 3D vertices
     .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
   }, &(VmaAllocationCreateInfo) {
     .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
     .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
   }, &triangles, &trianglesallocation, NULL);
 
-  struct vertice vertices[3] = {
+  struct vertice vertices[6] = {
     {0, 1, 0},
     {-1, -1, 0},
-    {1, -1, 0}
+    {1, -1, 0},
+    {-0.1, 1, 1},
+    {-1.1, -1, 1},
+    {0.9, -1, 1},
   };
 
   vmaCopyMemoryToAllocation(device.allocator, vertices, trianglesallocation, 0, sizeof(vertices));

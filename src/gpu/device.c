@@ -94,6 +94,7 @@ struct selectdeviceret selectdevice(VkInstance instance) {
   VkPhysicalDeviceVulkan13Features vulkan13features = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
     .dynamicRendering = true,
+    .synchronization2 = true,
     .pNext = &vulkan14features
   };
   VkPhysicalDeviceVulkan12Features vulkan12features = {
