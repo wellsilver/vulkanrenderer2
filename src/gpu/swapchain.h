@@ -31,7 +31,7 @@ static inline VkSwapchainKHR swapchainCreate(VkDevice device, VkSurfaceKHR windo
     .imageExtent = extent,
     .imageFormat = surfaceformat,
     .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
     .minImageCount = minimagecount,
     .queueFamilyIndexCount = 1,
     .pQueueFamilyIndices = &(uint32_t) {0},
