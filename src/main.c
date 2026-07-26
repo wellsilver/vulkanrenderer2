@@ -14,7 +14,6 @@ int main(int argc, char **argv) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot create window %s\n", SDL_GetError());
     return 3;
   }
-  SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
   
   struct gpu_threadarguments gpudata;
   gpudata.window = window;
