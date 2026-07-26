@@ -4,7 +4,9 @@
 struct gpu_threadarguments {
   SDL_Window *window;
   int *active;
-  uint64_t frametimeMS;
+  // Performance counters
+  bool counters;
+  uint64_t counterFrametimeNS;
 };
 
 struct vertice {

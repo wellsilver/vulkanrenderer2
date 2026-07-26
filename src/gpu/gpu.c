@@ -58,9 +58,11 @@ struct graphicSettings {
 /*
 
 */
-void graphics3D(VkSurfaceKHR windowsurface, struct selectdeviceret device, int *active, uint64_t *frametime, struct graphicSettings *settings, VkPipelineCache cache, VkBuffer triangles) {
+void graphics3D(VkSurfaceKHR windowsurface, struct gpu_threadarguments *args, struct selectdeviceret device, struct graphicSettings *settings, VkPipelineCache cache, VkBuffer triangles) {
   VkResult err;
   
+  int *active = args->active;
+
   VkPhysicalDeviceProperties deviceproperties;
   vkGetPhysicalDeviceProperties(device.physicaldevice, &deviceproperties);
 
@@ -313,13 +315,13 @@ ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)
 ubo.proj[1][1] *= -1;
 */
 
-  vec3 position = {2, 2, 2};
+  vec3 position = {1, 0, 2};
   vec3 front = {0, 0, 0};
   vec3 positionplusfront;
   vec3 up = {0, 1, 0};
-  //glm_vec3_add(position, front, positionplusfront);
-  glm_lookat_rh_zo(position, front, up, camMatrices.view);
-  glm_perspective_rh_zo(glm_rad(45.0f), (float)surfacecapabilities.currentExtent.width / (float) surfacecapabilities.currentExtent.height, 0.1f, 100.0f, camMatrices.proj);
+  glm_vec3_add(position, front, positionplusfront);
+  glm_lookat_rh_zo(positionplusfront, front, up, camMatrices.view);
+  glm_perspective_rh_zo(glm_rad(90.0f), (float)surfacecapabilities.currentExtent.width / (float) surfacecapabilities.currentExtent.height, 0.1f, 100.0f, camMatrices.proj);
   camMatrices.proj[1][1] *= -1.0f;
   
   uint32_t frameindex = 0;
@@ -332,10 +334,10 @@ ubo.proj[1][1] *= -1;
       vkResetFences(device.device, 1, &images[frameindex].framefinishFence);
       images[frameindex].fenceactivated = 0;
       if (performancecounter) { // Tally performance stats
-        uint64_t timestamps[4];
-        vkGetQueryPoolResults(device.device, querypool, 0, 4, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+        uint64_t timestamps[2];
+        vkGetQueryPoolResults(device.device, querypool, 0, 2, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 
-        *frametime = (timestamps[3] - timestamps[0]) * deviceproperties.limits.timestampPeriod;
+        args->counterFrametimeNS = (timestamps[1] - timestamps[0]) * deviceproperties.limits.timestampPeriod;
         //SDL_Log("%f ms\n", (float) (*frametime)/1000000.0f);
       }
     }
@@ -393,8 +395,10 @@ ubo.proj[1][1] *= -1;
     });
 
     if (performancecounter) {
-      vkCmdResetQueryPool(commandbuffer, querypool, 0, 4);
+      vkCmdResetQueryPool(commandbuffer, querypool, 0, 2);
     }
+
+    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
 
     vkCmdBeginRendering(commandbuffer, &(VkRenderingInfo) {
       .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -427,10 +431,9 @@ ubo.proj[1][1] *= -1;
 
     vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
     vkCmdBindVertexBuffers(commandbuffer, 0, 1, &triangles, (VkDeviceSize[]) {0});
-    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, querypool, 0); // Write time before start
     vkCmdDraw(commandbuffer, 6, 1, 0, 0);
-    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, querypool, 1); // End of vertex shader
-    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, querypool, 2); // End of fragment shader
+
+    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, querypool, 1); // End of graphics
 
     vkCmdEndRendering(commandbuffer);
 
@@ -453,9 +456,6 @@ ubo.proj[1][1] *= -1;
         .subresourceRange.layerCount = 1,
       }
     });
-
-    if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, querypool, 3); // End of graphics
-
     vkEndCommandBuffer(commandbuffer);
 
     vkQueueSubmit(device.queue, 1, &(VkSubmitInfo) {
@@ -466,7 +466,7 @@ ubo.proj[1][1] *= -1;
       .pWaitSemaphores = &images[frameindex].frameimageready,
       .signalSemaphoreCount = 1,
       .pSignalSemaphores = &images[frameindex].framefinishSem,
-      .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT},
+      .pWaitDstStageMask = &(VkPipelineStageFlags) {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
     }, images[frameindex].framefinishFence);
     images[frameindex].fenceactivated = 1;
 
@@ -555,7 +555,7 @@ int gpu(struct gpu_threadarguments *args) {
   struct graphicSettings settings;
 
   while (*args->active)
-    graphics3D(windowsurface, device, args->active, &args->frametimeMS, &settings, cache, triangles);
+    graphics3D(windowsurface, args, device, &settings, cache, triangles);
 
   vmaDestroyBuffer(device.allocator, triangles, trianglesallocation);
   vmaDestroyAllocator(device.allocator);
