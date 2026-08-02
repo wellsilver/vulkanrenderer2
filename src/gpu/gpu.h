@@ -4,6 +4,9 @@
 struct gpu_threadarguments {
   SDL_Window *window;
   int *active;
+  // Camera
+  float camx,camy,camz;
+  
   // Performance counters
   bool counters;
   uint64_t counterFrametimeNS;

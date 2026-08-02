@@ -314,15 +314,6 @@ ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
 ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
 ubo.proj[1][1] *= -1;
 */
-
-  vec3 position = {1, 0, 2};
-  vec3 front = {0, 0, 0};
-  vec3 positionplusfront;
-  vec3 up = {0, 1, 0};
-  glm_vec3_add(position, front, positionplusfront);
-  glm_lookat_rh_zo(positionplusfront, front, up, camMatrices.view);
-  glm_perspective_rh_zo(glm_rad(90.0f), (float)surfacecapabilities.currentExtent.width / (float) surfacecapabilities.currentExtent.height, 0.1f, 100.0f, camMatrices.proj);
-  camMatrices.proj[1][1] *= -1.0f;
   
   uint32_t frameindex = 0;
   bool performancecounter = 0;
@@ -346,6 +337,15 @@ ubo.proj[1][1] *= -1;
     err = vkAcquireNextImageKHR(device.device, swapchain, UINT64_MAX, images[frameindex].frameimageready, 0, &imageindex);
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
       break; // Exit the loop and remake everything
+
+    vec3 position = {args->camx, args->camy, args->camz};
+    vec3 front = {0, 0, 0};
+    vec3 positionplusfront;
+    vec3 up = {0, 1, 0};
+    glm_vec3_add(position, front, positionplusfront);
+    glm_lookat_rh_zo(positionplusfront, front, up, camMatrices.view);
+    glm_perspective_rh_zo(glm_rad(90.0f), (float)surfacecapabilities.currentExtent.width / (float) surfacecapabilities.currentExtent.height, 0.1f, 100.0f, camMatrices.proj);
+    camMatrices.proj[1][1] *= -1.0f;
 
     VkCommandBuffer commandbuffer = commandbuffers[imageindex];
 
@@ -411,7 +411,7 @@ ubo.proj[1][1] *= -1;
         .resolveMode = VK_RESOLVE_MODE_NONE,
         .resolveImageView = images[frameindex].imageview,
         .resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_NONE,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE
       },
       .pDepthAttachment = &(VkRenderingAttachmentInfo) {

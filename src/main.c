@@ -20,6 +20,10 @@ int main(int argc, char **argv) {
   gpudata.active = &active;
   SDL_Thread *gputhread = SDL_CreateThread((SDL_ThreadFunction) &gpu, "renderer", &gpudata);
   
+  gpudata.camx = 1;
+  gpudata.camy = 0;
+  gpudata.camz = 2;
+
   SDL_Event event;
   while (active) {
     SDL_WaitEvent(&event);
