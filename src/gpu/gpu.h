@@ -1,6 +1,11 @@
 #include <SDL3/SDL.h>
 #include <cglm/cglm.h>
 
+struct gpuparams {
+  float camx, camy, camz;
+  float camdir_yaw, camdir_pitch;
+};
+
 struct gpu_threadarguments {
   SDL_Window *window;
   int *active;

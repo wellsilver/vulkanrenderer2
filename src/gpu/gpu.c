@@ -15,6 +15,15 @@
 #include "gpu.h"
 #include "swapchain.h"
 
+struct graphicspersistdata {
+  VkPipelineCache pipelinecache;
+
+  VkBuffer indirectbuffer;
+  VkBuffer trianglecachebuffer;
+  VkBuffer *trianglebuffers;
+  unsigned int lentrianglebuffers;
+};
+
 VkInstance makeinstance() {
   VkInstance ret;
 
@@ -51,14 +60,10 @@ VkInstance makeinstance() {
   return ret;
 }
 
-struct graphicSettings {
-
-};
-
 /*
 
 */
-void graphics3D(VkSurfaceKHR windowsurface, struct gpu_threadarguments *args, struct selectdeviceret device, struct graphicSettings *settings, VkPipelineCache cache, VkBuffer triangles) {
+void graphics3D(VkSurfaceKHR windowsurface, struct gpu_threadarguments *args, struct selectdeviceret device, struct graphicSettings *settings, struct graphicspersistdata *data) {
   VkResult err;
   
   int *active = args->active;
@@ -113,7 +118,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct gpu_threadarguments *args, st
   }, NULL, &layout);
 
   VkPipeline graphicspipeline;
-  vkCreateGraphicsPipelines(device.device, cache, 1, &(VkGraphicsPipelineCreateInfo) {
+  vkCreateGraphicsPipelines(device.device, data->pipelinecache, 1, &(VkGraphicsPipelineCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
     .pNext = &rfInfo,
     .flags = 0,
@@ -429,9 +434,8 @@ ubo.proj[1][1] *= -1;
     
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
 
-    vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
-    vkCmdBindVertexBuffers(commandbuffer, 0, 1, &triangles, (VkDeviceSize[]) {0});
-    vkCmdDraw(commandbuffer, 6, 1, 0, 0);
+    vkCmdBindVertexBuffers(commandbuffer, 0, 1, &data->trianglecachebuffer, (VkDeviceSize[]) {0});
+    vkCmdDrawIndirect(commandbuffer, data->indirectbuffer, 0, 1, sizeof(VkDrawIndirectCommand));
 
     if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, querypool, 1); // End of graphics
 
@@ -520,14 +524,15 @@ int gpu(struct gpu_threadarguments *args) {
     return 3;
   }
 
+  struct graphicspersistdata data;
+
   VkPipelineCache cache;
   vkCreatePipelineCache(device.device, &(VkPipelineCacheCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
     .initialDataSize = 0
-  }, NULL, &cache);
+  }, NULL, &data.pipelinecache);
 
-  VmaAllocation trianglesallocation;
-  VkBuffer triangles;
+  VmaAllocation vertexTempallocation;
   vmaCreateBuffer(device.allocator, &(VkBufferCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .queueFamilyIndexCount = 1,
@@ -539,25 +544,28 @@ int gpu(struct gpu_threadarguments *args) {
   }, &(VmaAllocationCreateInfo) {
     .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
     .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-  }, &triangles, &trianglesallocation, NULL);
+  }, &data.trianglecachebuffer, &vertexTempallocation, NULL);
 
-  struct vertice vertices[6] = {
-    {0, 1, 0},
-    {-1, -1, 0},
-    {1, -1, 0},
-    {-0.1, 1, 1},
-    {-1.1, -1, 1},
-    {0.9, -1, 1},
-  };
-
-  vmaCopyMemoryToAllocation(device.allocator, vertices, trianglesallocation, 0, sizeof(vertices));
-
-  struct graphicSettings settings;
+  VmaAllocation drawindirectbufferallocation;
+  VkBuffer drawindirectbuffer;
+  vmaCreateBuffer(device.allocator, &(VkBufferCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .queueFamilyIndexCount = 1,
+    .pQueueFamilyIndices = (uint32_t[]) {0},
+    .flags = 0,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .size = sizeof(VkDrawIndirectCommand)*128, // 3 3D vertices
+    .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
+  }, &(VmaAllocationCreateInfo) {
+    .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+  }, &data.indirectbuffer, &drawindirectbufferallocation, NULL);
 
   while (*args->active)
-    graphics3D(windowsurface, args, device, &settings, cache, triangles);
+    graphics3D(windowsurface, args, device, NULL, &data);
 
-  vmaDestroyBuffer(device.allocator, triangles, trianglesallocation);
+  vmaDestroyBuffer(device.allocator, data.trianglecachebuffer, vertexTempallocation);
+  vmaDestroyBuffer(device.allocator, data.indirectbuffer, drawindirectbufferallocation);
   vmaDestroyAllocator(device.allocator);
   vkDestroyPipelineCache(device.device, cache, NULL);
   vkDestroyDevice(device.device, NULL);
