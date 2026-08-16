@@ -12,6 +12,7 @@ struct gpu_threadarguments {
   // Camera
   float camx,camy,camz;
   
+  void *persistdata;
   // Performance counters
   bool counters;
   uint64_t counterFrametimeNS;
