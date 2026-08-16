@@ -438,7 +438,7 @@ ubo.proj[1][1] *= -1;
     vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
     for (unsigned int loop=0;loop<data->lentrianglebuffers;loop++) {
       vkCmdBindVertexBuffers(commandbuffer, 0, 1, &data->trianglebuffers[loop], &(VkDeviceSize) {0});
-      vkCmdDraw(commandbuffer, data->trianglebufferscount[loop], 1, 0, 0);
+      vkCmdDraw(commandbuffer, data->trianglebufferscount[loop]*3, 1, 0, 0);
     }
 
     if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, querypool, 1); // End of graphics
@@ -581,11 +581,11 @@ int gpu(struct gpu_threadarguments *args) {
     .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
   }, &trianglebuffer1, &trianglebuffer1allocation, NULL);
   struct vertice *trianglebuffer1data;
-  unsigned int trianglebuffer1len;
   vmaMapMemory(device.allocator, trianglebuffer1allocation, (void **) &trianglebuffer1data);
-  trianglebuffer1data[0] = (struct vertice) {-1, -1, 0};
+  trianglebuffer1data[0] = (struct vertice) {0, 1, 0};
   trianglebuffer1data[1] = (struct vertice) {-1, -1, 0};
-  trianglebuffer1data[2] = (struct vertice) {-1, -1, 0};
+  trianglebuffer1data[2] = (struct vertice) {1, -1, 0};
+  unsigned int trianglebuffer1len = 1;
 
   data.lentrianglebuffers = 1,
   data.trianglebuffers = &trianglebuffer1;
