@@ -22,6 +22,8 @@ struct vertice {
   float x,y,z;
 };
 
+unsigned int addmesh(void *data, unsigned int verticelen, struct vertice *vertices);
+
 struct camera {
   mat4 proj;
   mat4 view;

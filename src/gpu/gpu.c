@@ -17,12 +17,14 @@
 
 struct graphicspersistdata {
   VkPipelineCache pipelinecache;
+  VmaAllocator allocator;
 
   VkBuffer indirectbuffer;
   VkBuffer trianglecachebuffer;
   VkBuffer *trianglebuffers;
   unsigned int *trianglebufferscount;
   unsigned int lentrianglebuffers;
+  SDL_Semaphore *writesem;
 };
 
 VkInstance makeinstance() {
@@ -59,6 +61,36 @@ VkInstance makeinstance() {
     return 0;
   }
   return ret;
+}
+
+unsigned int addmesh(void *data_v, unsigned int verticelen, struct vertice *vertices) {
+  struct graphicspersistdata *data = data_v;
+
+  VmaAllocation trianglebuffer1allocation;
+  VkBuffer trianglebuffer1;
+  vmaCreateBuffer(data->allocator, &(VkBufferCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .queueFamilyIndexCount = 1,
+    .pQueueFamilyIndices = (uint32_t[]) {0},
+    .flags = 0,
+    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    .size = sizeof(struct vertice)*verticelen,
+    .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+  }, &(VmaAllocationCreateInfo) {
+    .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+  }, &trianglebuffer1, &trianglebuffer1allocation, NULL);
+  vmaCopyMemoryToAllocation(data->allocator, vertices, trianglebuffer1allocation, 0, sizeof(struct vertice)*verticelen);
+
+  SDL_WaitSemaphore(data->writesem);
+  data->lentrianglebuffers++;
+  data->trianglebuffers = SDL_realloc(data->trianglebuffers, data->lentrianglebuffers);
+  data->trianglebufferscount = SDL_realloc(data->trianglebuffers, data->lentrianglebuffers);
+
+  data->trianglebuffers[data->lentrianglebuffers-1] = trianglebuffer1;
+  data->trianglebufferscount[data->lentrianglebuffers-1] = verticelen; 
+
+  SDL_SignalSemaphore(data->writesem);
 }
 
 /*
@@ -437,6 +469,7 @@ ubo.proj[1][1] *= -1;
     
     vkCmdPushConstants(commandbuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(camMatrices), &camMatrices);
     for (unsigned int loop=0;loop<data->lentrianglebuffers;loop++) {
+      if (data->trianglebufferscount[loop] == 0) continue;
       vkCmdBindVertexBuffers(commandbuffer, 0, 1, &data->trianglebuffers[loop], &(VkDeviceSize) {0});
       vkCmdDraw(commandbuffer, data->trianglebufferscount[loop]*3, 1, 0, 0);
     }
@@ -565,37 +598,26 @@ int gpu(struct gpu_threadarguments *args) {
     .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
   }, &data.indirectbuffer, &drawindirectbufferallocation, NULL);
 
-  // a single test triangle
-  VmaAllocation trianglebuffer1allocation;
-  VkBuffer trianglebuffer1;
-  vmaCreateBuffer(device.allocator, &(VkBufferCreateInfo) {
-    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    .queueFamilyIndexCount = 1,
-    .pQueueFamilyIndices = (uint32_t[]) {0},
-    .flags = 0,
-    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    .size = sizeof(struct vertice)*3, // 3 3D vertices
-    .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-  }, &(VmaAllocationCreateInfo) {
-    .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
-  }, &trianglebuffer1, &trianglebuffer1allocation, NULL);
-  struct vertice *trianglebuffer1data;
-  vmaMapMemory(device.allocator, trianglebuffer1allocation, (void **) &trianglebuffer1data);
+  data.lentrianglebuffers = 1,
+  data.trianglebuffers = SDL_malloc(sizeof(VkBuffer *)*1);
+  data.trianglebuffers[0] = NULL;
+  data.trianglebufferscount = SDL_malloc(sizeof(unsigned int)*1);
+  data.trianglebufferscount[0] = 0;
+
+  data.allocator = device.allocator;
+  data.writesem = SDL_CreateSemaphore(1);
+
+  struct vertice trianglebuffer1data[3];
   trianglebuffer1data[0] = (struct vertice) {0, 1, 0};
   trianglebuffer1data[1] = (struct vertice) {-1, -1, 0};
   trianglebuffer1data[2] = (struct vertice) {1, -1, 0};
-  unsigned int trianglebuffer1len = 1;
-
-  data.lentrianglebuffers = 1,
-  data.trianglebuffers = &trianglebuffer1;
-  data.trianglebufferscount = &trianglebuffer1len;
+  addmesh(&data, 3, trianglebuffer1data);
 
   while (*args->active)
     graphics3D(windowsurface, args, device, &data);
 
-  vmaUnmapMemory(device.allocator, trianglebuffer1allocation);
-  vmaDestroyBuffer(device.allocator, trianglebuffer1, trianglebuffer1allocation);
+  //vmaUnmapMemory(device.allocator, trianglebuffer1allocation);
+  //vmaDestroyBuffer(device.allocator, trianglebuffer1, trianglebuffer1allocation);
   vmaDestroyBuffer(device.allocator, data.trianglecachebuffer, vertexTempallocation);
   vmaDestroyBuffer(device.allocator, data.indirectbuffer, drawindirectbufferallocation);
   vmaDestroyAllocator(device.allocator);
