@@ -77,8 +77,8 @@ unsigned int addmesh(void *data_v, unsigned int verticelen, struct vertice *vert
     .size = sizeof(struct vertice)*verticelen,
     .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
   }, &(VmaAllocationCreateInfo) {
-    .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+    .usage = VMA_MEMORY_USAGE_AUTO,
+    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
   }, &trianglebuffer1, &trianglebuffer1allocation, NULL);
   vmaCopyMemoryToAllocation(data->allocator, vertices, trianglebuffer1allocation, 0, sizeof(struct vertice)*verticelen);
 
