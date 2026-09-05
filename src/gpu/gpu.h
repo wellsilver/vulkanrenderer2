@@ -6,13 +6,14 @@ struct gpuparams {
   float camdir_yaw, camdir_pitch;
 };
 
+#include "displaylist.h"
+
 struct gpu_threadarguments {
   SDL_Window *window;
   int *active;
   // Camera
-  float camx,camy,camz;
+  struct displaylist *thelist;
   
-  void *persistdata;
   // Performance counters
   bool counters;
   uint64_t counterFrametimeNS;
