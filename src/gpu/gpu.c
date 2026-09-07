@@ -90,8 +90,8 @@ void graphics3D(VkSurfaceKHR windowsurface, struct gpu_threadarguments *args, st
     .pNext = NULL
   }, NULL, &shadermodule);
 
-  VkPipelineRenderingCreateInfoKHR rfInfo = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+  VkPipelineRenderingCreateInfo rfInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
     .pNext = NULL,
     .colorAttachmentCount = 1,
     .pColorAttachmentFormats = &surfaceformat.format,
@@ -138,26 +138,7 @@ void graphics3D(VkSurfaceKHR windowsurface, struct gpu_threadarguments *args, st
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
       },
     },
-    .pVertexInputState = &(VkPipelineVertexInputStateCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-      .vertexAttributeDescriptionCount = 1,
-      .pVertexAttributeDescriptions = (VkVertexInputAttributeDescription[]) {
-        {
-          .binding = 0,
-          .format = VK_FORMAT_R32G32B32_SFLOAT,
-          .location = 0,
-          .offset = 0
-        }
-      },
-      .vertexBindingDescriptionCount = 1,
-      .pVertexBindingDescriptions = (VkVertexInputBindingDescription[]) {
-        {
-          .binding = 0,
-          .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-          .stride = sizeof(struct vertice),
-        }
-      }
-    },
+    .pVertexInputState = &vertexinputstateinfo,
     .pInputAssemblyState = &(VkPipelineInputAssemblyStateCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
       .flags = 0,

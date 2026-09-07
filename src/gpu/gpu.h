@@ -19,10 +19,6 @@ struct gpu_threadarguments {
   uint64_t counterFrametimeNS;
 };
 
-struct vertice {
-  float x,y,z;
-};
-
 unsigned int addmesh(void *data, unsigned int verticelen, struct vertice *vertices);
 
 struct camera {
