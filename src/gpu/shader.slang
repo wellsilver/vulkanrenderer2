@@ -1,6 +1,6 @@
 struct input_t {
   [[vk::location(0)]] float3 pos;
-  //[[vk::location(1)]] float3 color;
+  [[vk::location(1)]] float3 color;
 };
 
 struct output_t {

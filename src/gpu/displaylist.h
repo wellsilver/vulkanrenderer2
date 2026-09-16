@@ -1,22 +1,16 @@
 #ifndef displaylist_h
 #define displaylist_h
 
-#include <SDL3/SDL_misc.h>
-
-#include <vulkan/vulkan.h>
-
-#define VMA_VULKAN_VERSION 1004000 // Vulkan 1.4
-#include <vk_mem_alloc.h>
+#include <SDL3/SDL_mutex.h>
 
 struct vertice {
   float x,y,z;
   float r,g,b;
-  uint32_t mesh;
 };
 
 static VkPipelineVertexInputStateCreateInfo vertexinputstateinfo = {
   .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-  .vertexAttributeDescriptionCount = 3,
+  .vertexAttributeDescriptionCount = 2,
   .pVertexAttributeDescriptions = (VkVertexInputAttributeDescription[]) {
     {
       .binding = 0,
@@ -29,13 +23,7 @@ static VkPipelineVertexInputStateCreateInfo vertexinputstateinfo = {
       .format = VK_FORMAT_R32G32B32_SFLOAT,
       .location = 1,
       .offset = sizeof(float)*3,
-    },
-    {
-      .binding = 0,
-      .format = VK_FORMAT_R32_UINT,
-      .location = 2,
-      .offset = sizeof(float)*3+sizeof(float)*3,
-    },
+    }
   },
   .vertexBindingDescriptionCount = 1,
   .pVertexBindingDescriptions = (VkVertexInputBindingDescription[]) {
@@ -50,20 +38,21 @@ static VkPipelineVertexInputStateCreateInfo vertexinputstateinfo = {
 struct displaylist {
   float camx,camy,camz;
   float camhorizontal,camvertical;
+
   // Triangle points len
   unsigned int lenvertices;
   // Triangle points
   struct vertice *vertices;
-  // Model matrices len
-  unsigned int lenmodels;
-  // model matrices
-  float *models[4*4];
+
+  SDL_Semaphore *access;
 };
 
-// Thread safe returns a identifier
+// Thread safe returns an identifier
 uint64_t addobject(struct displaylist *render);
 
-struct displaylist *createDisplaylist();
-void renderDisplaylist(VkCommandBuffer buffer, VmaAllocator allocator, struct displaylist *render);
+void createDisplaylist(struct displaylist *create);
+
+// Creates the command buffer, run after vkcmdbeginrendering all draw calls in here
+void renderDisplaylist(VkCommandBuffer buffer, struct displaylist *render);
 
 #endif
