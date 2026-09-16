@@ -503,7 +503,6 @@ int gpu(struct gpu_threadarguments *args) {
 
   struct graphicspersistdata data;
 
-  VkPipelineCache cache;
   vkCreatePipelineCache(device.device, &(VkPipelineCacheCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
     .initialDataSize = 0
@@ -514,7 +513,7 @@ int gpu(struct gpu_threadarguments *args) {
     graphics3D(windowsurface, args, device, &data);
 
   vmaDestroyAllocator(device.allocator);
-  vkDestroyPipelineCache(device.device, cache, NULL);
+  vkDestroyPipelineCache(device.device, data.pipelinecache, NULL);
   vkDestroyDevice(device.device, NULL);
   vkDestroySurfaceKHR(instance, windowsurface, NULL);
   vkDestroyInstance(instance, NULL);
