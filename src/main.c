@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 
 #include "gpu/gpu.h"
+#include "gpu/displaylist.h"
 
 int main(int argc, char **argv) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -15,14 +16,16 @@ int main(int argc, char **argv) {
     return 3;
   }
   
+  struct displaylist maindisplaylist;
+  createDisplaylist(&maindisplaylist);
+
   struct gpu_threadarguments gpudata;
+
+  gpudata.thelist = &maindisplaylist;
   gpudata.window = window;
   gpudata.active = &active;
   SDL_Thread *gputhread = SDL_CreateThread((SDL_ThreadFunction) &gpu, "renderer", &gpudata);
   
-  gpudata.camx = 1;
-  gpudata.camy = 0;
-  gpudata.camz = 2;
 
   SDL_Event event;
   while (active) {
