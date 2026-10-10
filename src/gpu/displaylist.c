@@ -4,9 +4,23 @@
 
 #include "displaylist.h"
 
-// Thread safe returns an identifier
-uint64_t addobject(struct displaylist *render) {
+// Thread safe, adds
+struct model *addmodel(struct displaylist *render, unsigned int lenvertices, struct vertice *vertices) {
+  struct model setup;
+  setup.lenvertices = lenvertices;
+  setup.vertices = SDL_malloc(lenvertices*sizeof(struct vertice));
+  SDL_memcpy(setup.vertices, vertices, sizeof(struct vertice)*lenvertices);
+  setup.access = SDL_CreateSemaphore(1);
 
+  SDL_WaitSemaphore(render->access);
+  
+  // Get space to place the new model
+  render->lenmodels++;
+  SDL_realloc(render->models, sizeof(struct model)*render->lenmodels);  
+  // Copy into models
+  render->models[render->lenmodels-1] = setup;
+
+  SDL_SignalSemaphore(render->access);
 }
 
 void createDisplaylist(struct displaylist *create) {
@@ -16,10 +30,9 @@ void createDisplaylist(struct displaylist *create) {
   create->camx = 0;
   create->camy = 0;
   create->camz = 0;
-  // zero a small vertice buffer.
-  create->lenvertices = 3;
-  create->vertices = malloc(sizeof(struct vertice)*3);
-  SDL_memset(create->vertices, 0, sizeof(struct vertice)*3);
+  // create a small buffer which can be resized when required.
+  create->lenmodels = 1;
+  create->models = SDL_malloc(sizeof(struct model));
 }
 
 // Creates the command buffer, run after vkcmdbeginrendering all draw calls in here

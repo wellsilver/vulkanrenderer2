@@ -5,7 +5,8 @@
 
 struct vertice {
   float x,y,z;
-  float r,g,b;
+  float u,v; // as in YUV
+  unsigned int texture; // I believe these are 32 bits, so its aligned with yuv's UV
 };
 
 static VkPipelineVertexInputStateCreateInfo vertexinputstateinfo = {
@@ -35,14 +36,25 @@ static VkPipelineVertexInputStateCreateInfo vertexinputstateinfo = {
   }
 };
 
+// Every object made of triangles
+struct model {
+  float x,y,z;
+  float r,p,y; // Roll Pitch Yaw
+
+  struct vertice *vertices;
+  unsigned int lenvertices;
+
+  SDL_Semaphore *access;
+};
+
 struct displaylist {
   float camx,camy,camz;
   float camhorizontal,camvertical;
 
   // Triangle points len
-  unsigned int lenvertices;
+  unsigned int lenmodels;
   // Triangle points
-  struct vertice *vertices;
+  struct model *models;
 
   SDL_Semaphore *access;
 };
