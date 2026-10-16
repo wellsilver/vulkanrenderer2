@@ -412,7 +412,7 @@ ubo.proj[1][1] *= -1;
     
     vkCmdBindPipeline(commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicspipeline);
     
-    renderDisplaylist(commandbuffer, data->allocator, args->thelist);
+    renderDisplaylist(commandbuffer, args->thelist);
 
     if (performancecounter) vkCmdWriteTimestamp(commandbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, querypool, 1); // End of graphics
 

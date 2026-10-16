@@ -2,6 +2,7 @@
 #define displaylist_h
 
 #include <SDL3/SDL_mutex.h>
+#include <vulkan/vulkan.h>
 
 struct vertice {
   float x,y,z;
@@ -39,7 +40,7 @@ static VkPipelineVertexInputStateCreateInfo vertexinputstateinfo = {
 // Every object made of triangles
 struct model {
   float x,y,z;
-  float r,p,y; // Roll Pitch Yaw
+  float ro,pi,ya; // Roll Pitch Yaw
 
   struct vertice *vertices;
   unsigned int lenvertices;
@@ -60,7 +61,7 @@ struct displaylist {
 };
 
 // Thread safe returns an identifier
-uint64_t addobject(struct displaylist *render);
+struct model *addmodel(struct displaylist *render, unsigned int lenvertices, struct vertice *vertices);
 
 void createDisplaylist(struct displaylist *create);
 

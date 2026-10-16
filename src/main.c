@@ -19,6 +19,12 @@ int main(int argc, char **argv) {
   struct displaylist maindisplaylist;
   createDisplaylist(&maindisplaylist);
 
+  addmodel(&maindisplaylist, 3, (struct vertice[]) {
+    {.x = -1, .y = -1, .z = 0},
+    {.x = 0, .y = 1, .z = 0},
+    {.x = 1, .y = -1, .z = 0},
+  });
+
   struct gpu_threadarguments gpudata;
 
   gpudata.thelist = &maindisplaylist;

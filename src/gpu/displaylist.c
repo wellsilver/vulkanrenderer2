@@ -21,6 +21,8 @@ struct model *addmodel(struct displaylist *render, unsigned int lenvertices, str
   render->models[render->lenmodels-1] = setup;
 
   SDL_SignalSemaphore(render->access);
+
+  return &render->models[render->lenmodels-1];
 }
 
 void createDisplaylist(struct displaylist *create) {
