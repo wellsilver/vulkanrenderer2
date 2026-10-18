@@ -2,6 +2,9 @@
 
 #include <vulkan/vulkan.h>
 
+#define VMA_VULKAN_VERSION 1004000 // Vulkan 1.4
+#include <vk_mem_alloc.h>
+
 #include "displaylist.h"
 
 // Thread safe, adds
@@ -25,16 +28,18 @@ struct model *addmodel(struct displaylist *render, unsigned int lenvertices, str
   return &render->models[render->lenmodels-1];
 }
 
-void createDisplaylist(struct displaylist *create) {
-  create->access = SDL_CreateSemaphore(1);
-  create->camhorizontal = 0;
-  create->camvertical = 0;
-  create->camx = 0;
-  create->camy = 0;
-  create->camz = 0;
+struct displaylist createDisplaylist(VmaAllocator allocator) {
+  struct displaylist ret;
+  ret.access = SDL_CreateSemaphore(1);
+  ret.camhorizontal = 0;
+  ret.camvertical = 0;
+  ret.camx = 0;
+  ret.camy = 0;
+  ret.camz = 0;
   // create a small buffer which can be resized when required.
-  create->lenmodels = 1;
-  create->models = SDL_malloc(sizeof(struct model));
+  ret.lenmodels = 1;
+  ret.models = SDL_malloc(sizeof(struct model));
+  return ret;
 }
 
 // Creates the command buffer, run after vkcmdbeginrendering all draw calls in here

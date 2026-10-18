@@ -4,6 +4,9 @@
 #include <SDL3/SDL_mutex.h>
 #include <vulkan/vulkan.h>
 
+#define VMA_VULKAN_VERSION 1004000 // Vulkan 1.4
+#include <vk_mem_alloc.h>
+
 struct vertice {
   float x,y,z;
   float u,v; // as in YUV
@@ -42,6 +45,7 @@ struct model {
   float x,y,z;
   float ro,pi,ya; // Roll Pitch Yaw
 
+  // this is the pointer to inside of a vkbuffer
   struct vertice *vertices;
   unsigned int lenvertices;
 
@@ -52,10 +56,14 @@ struct displaylist {
   float camx,camy,camz;
   float camhorizontal,camvertical;
 
-  // Triangle points len
+  // Triangle models, has all the needed information per model
   unsigned int lenmodels;
-  // Triangle points
   struct model *models;
+
+  // Triangle buffers
+  unsigned int lenbuffers;
+  VkBuffer *buffers;
+  VmaAllocation *allocations;
 
   SDL_Semaphore *access;
 };
@@ -63,7 +71,7 @@ struct displaylist {
 // Thread safe returns an identifier
 struct model *addmodel(struct displaylist *render, unsigned int lenvertices, struct vertice *vertices);
 
-void createDisplaylist(struct displaylist *create);
+struct displaylist createDisplaylist(VmaAllocator allocator);
 
 // Creates the command buffer, run after vkcmdbeginrendering all draw calls in here
 void renderDisplaylist(VkCommandBuffer buffer, struct displaylist *render);
